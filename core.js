@@ -32,8 +32,8 @@ function toast(msg, type, ms){
    STORAGE
    ═══════════════════════════════════════════════════════════════ */
 const K_URL   = 'erp_url';
-const K_DATA  = 'erp_data_v1';
-const K_QUEUE = 'erp_queue_v1';
+const K_DATA  = 'erp_data_v2';
+const K_QUEUE = 'erp_queue_v2';
 
 const getUrl    = () => localStorage[K_URL] || '';
 const hasUrl    = () => !!localStorage[K_URL];
@@ -42,21 +42,125 @@ const getQueue  = () => { try { return JSON.parse(localStorage[K_QUEUE] || '[]')
 const setQueue  = q => { localStorage[K_QUEUE] = JSON.stringify(q); updateStatus(); };
 
 /* ═══════════════════════════════════════════════════════════════
-   STATE
+   STATE — IMB (Integrated Multi Business)
+   5 Cabang: Strawberry · Hidroponik · Kopi · Nursery · Sayur
    ═══════════════════════════════════════════════════════════════ */
 function seed(){
   return {
-    kas: 25000000,
-    kasKecil: { saldo: 1500000, mutasi: [] },
+    kas: 120000000,
+    kasKecil: { saldo: 7500000, mutasi: [] },
     barang: [
-      { id:uid(), kode:'BB-001', nama:'Kertas Art Paper 120gsm', satuan:'rim',
-        hargaBeli:55000, hargaJual:78000, stok:40, tipe:'bahan' },
-      { id:uid(), kode:'BB-002', nama:'Tinta Offset CMYK', satuan:'kg',
-        hargaBeli:120000, hargaJual:165000, stok:25, tipe:'bahan' },
-      { id:uid(), kode:'BB-003', nama:'Lem Hotmelt', satuan:'kg',
-        hargaBeli:48000, hargaJual:65000, stok:30, tipe:'bahan' },
-      { id:uid(), kode:'BJ-001', nama:'Kemasan Box Custom', satuan:'pcs',
-        hargaBeli:0, hargaJual:0, stok:0, tipe:'jadi' },
+      // ═══ CABANG STRAWBERRY ═══
+      { id:uid(), kode:'SW-001', nama:'Bibit Stroberi Sweet Charlie',
+        satuan:'polybag', hargaBeli:3500, hargaJual:7500,
+        stok:500, tipe:'bahan' },
+      { id:uid(), kode:'SW-002', nama:'Bibit Stroberi Californica',
+        satuan:'polybag', hargaBeli:4000, hargaJual:8500,
+        stok:300, tipe:'bahan' },
+      { id:uid(), kode:'SW-003', nama:'Net Pot Stroberi',
+        satuan:'pcs', hargaBeli:1200, hargaJual:0,
+        stok:800, tipe:'bahan' },
+      { id:uid(), kode:'SW-101', nama:'Stroberi Segar Grade A',
+        satuan:'kg', hargaBeli:0, hargaJual:95000,
+        stok:0, tipe:'jadi' },
+      { id:uid(), kode:'SW-102', nama:'Stroberi Frozen',
+        satuan:'kg', hargaBeli:0, hargaJual:65000,
+        stok:0, tipe:'jadi' },
+      { id:uid(), kode:'SW-103', nama:'Stroberi Curah (Grade B)',
+        satuan:'kg', hargaBeli:0, hargaJual:45000,
+        stok:0, tipe:'jadi' },
+
+      // ═══ CABANG HIDROPONIK ═══
+      { id:uid(), kode:'HD-001', nama:'Benih Selada Keriting',
+        satuan:'gram', hargaBeli:8000, hargaJual:18000,
+        stok:50, tipe:'bahan' },
+      { id:uid(), kode:'HD-002', nama:'Nutrisi AB Mix Sayuran Daun',
+        satuan:'paket', hargaBeli:125000, hargaJual:0,
+        stok:25, tipe:'bahan' },
+      { id:uid(), kode:'HD-003', nama:'Rockwool Semai',
+        satuan:'lembar', hargaBeli:35000, hargaJual:0,
+        stok:30, tipe:'bahan' },
+      { id:uid(), kode:'HD-004', nama:'Net Pot 5cm',
+        satuan:'pcs', hargaBeli:800, hargaJual:0,
+        stok:1000, tipe:'bahan' },
+      { id:uid(), kode:'HD-101', nama:'Selada Hijau Hidroponik',
+        satuan:'kg', hargaBeli:0, hargaJual:35000,
+        stok:0, tipe:'jadi' },
+      { id:uid(), kode:'HD-102', nama:'Selada Kemasan 250gr',
+        satuan:'pack', hargaBeli:0, hargaJual:12000,
+        stok:0, tipe:'jadi' },
+      { id:uid(), kode:'HD-103', nama:'Pakcoy Hidroponik',
+        satuan:'kg', hargaBeli:0, hargaJual:28000,
+        stok:0, tipe:'jadi' },
+      { id:uid(), kode:'HD-104', nama:'Kale Hidroponik',
+        satuan:'kg', hargaBeli:0, hargaJual:55000,
+        stok:0, tipe:'jadi' },
+
+      // ═══ CABANG KOPI ═══
+      { id:uid(), kode:'KP-001', nama:'Bibit Kopi Robusta',
+        satuan:'batang', hargaBeli:5000, hargaJual:12000,
+        stok:200, tipe:'bahan' },
+      { id:uid(), kode:'KP-002', nama:'Bibit Kopi Arabika Gayo',
+        satuan:'batang', hargaBeli:8000, hargaJual:18000,
+        stok:150, tipe:'bahan' },
+      { id:uid(), kode:'KP-003', nama:'Karung Goni Kopi',
+        satuan:'pcs', hargaBeli:25000, hargaJual:0,
+        stok:100, tipe:'bahan' },
+      { id:uid(), kode:'KP-101', nama:'Kopi Green Bean Robusta',
+        satuan:'kg', hargaBeli:0, hargaJual:85000,
+        stok:0, tipe:'jadi' },
+      { id:uid(), kode:'KP-102', nama:'Kopi Green Bean Arabika',
+        satuan:'kg', hargaBeli:0, hargaJual:180000,
+        stok:0, tipe:'jadi' },
+      { id:uid(), kode:'KP-103', nama:'Kopi Roasted 200gr',
+        satuan:'pack', hargaBeli:0, hargaJual:65000,
+        stok:0, tipe:'jadi' },
+
+      // ═══ CABANG NURSERY ═══
+      { id:uid(), kode:'NS-001', nama:'Polybag 20x20',
+        satuan:'pcs', hargaBeli:500, hargaJual:0,
+        stok:3000, tipe:'bahan' },
+      { id:uid(), kode:'NS-002', nama:'Media Tanam (Tanah + Kompos)',
+        satuan:'karung', hargaBeli:35000, hargaJual:0,
+        stok:80, tipe:'bahan' },
+      { id:uid(), kode:'NS-003', nama:'Pupuk Organik Granul',
+        satuan:'karung', hargaBeli:85000, hargaJual:0,
+        stok:40, tipe:'bahan' },
+      { id:uid(), kode:'NS-004', nama:'Mulsa Plastik Hitam Perak',
+        satuan:'roll', hargaBeli:180000, hargaJual:0,
+        stok:15, tipe:'bahan' },
+      { id:uid(), kode:'NS-101', nama:'Bibit Tomat Siap Tanam',
+        satuan:'polybag', hargaBeli:0, hargaJual:8000,
+        stok:0, tipe:'jadi' },
+      { id:uid(), kode:'NS-102', nama:'Bibit Cabai Rawit Siap Tanam',
+        satuan:'polybag', hargaBeli:0, hargaJual:7500,
+        stok:0, tipe:'jadi' },
+      { id:uid(), kode:'NS-103', nama:'Bibit Stroberi Siap Tanam',
+        satuan:'polybag', hargaBeli:0, hargaJual:12000,
+        stok:0, tipe:'jadi' },
+
+      // ═══ CABANG SAYUR ═══
+      { id:uid(), kode:'SY-001', nama:'Kemasan Curah 250gr',
+        satuan:'pcs', hargaBeli:1200, hargaJual:0,
+        stok:2000, tipe:'bahan' },
+      { id:uid(), kode:'SY-002', nama:'Kemasan Curah 500gr',
+        satuan:'pcs', hargaBeli:1800, hargaJual:0,
+        stok:1500, tipe:'bahan' },
+      { id:uid(), kode:'SY-003', nama:'Pestisida Nabati',
+        satuan:'liter', hargaBeli:95000, hargaJual:0,
+        stok:18, tipe:'bahan' },
+      { id:uid(), kode:'SY-101', nama:'Tomat Segar',
+        satuan:'kg', hargaBeli:0, hargaJual:22000,
+        stok:0, tipe:'jadi' },
+      { id:uid(), kode:'SY-102', nama:'Cabai Rawit Merah',
+        satuan:'kg', hargaBeli:0, hargaJual:55000,
+        stok:0, tipe:'jadi' },
+      { id:uid(), kode:'SY-103', nama:'Terong Ungu',
+        satuan:'kg', hargaBeli:0, hargaJual:18000,
+        stok:0, tipe:'jadi' },
+      { id:uid(), kode:'SY-104', nama:'Buncis Segar',
+        satuan:'kg', hargaBeli:0, hargaJual:25000,
+        stok:0, tipe:'jadi' },
     ],
     pembelian: [], penjualan: [],
     pembayaran: [], penerimaan: [],
@@ -90,6 +194,12 @@ function labaRugi(){
   const beban = sum(S.kasKecil.mutasi.filter(m => m.keluar), m => m.keluar);
   const kotor = pend - hpp;
   return { pend, hpp, kotor, beban, bersih: kotor - beban };
+}
+
+function neraca(){
+  const aset = S.kas + S.kasKecil.saldo + piutang() + nilaiStok();
+  const liab = hutang();
+  return { aset, liab, ekuitas: aset - liab };
 }
 
 function jurnal(){
@@ -170,25 +280,22 @@ async function sync(){
 }
 
 function updateStatus(){
-  const subEl = $('#sub'), syEl = $('#sy'), cnEl = $('#cn');
-  if (!subEl) return;
+  const syEl = $('#sy'), cnEl = $('#cn');
+  if (!syEl) return;
   if (!hasUrl()){
-    subEl.textContent = 'Belum tersambung';
     syEl.textContent = '';
-    cnEl.textContent = '';
+    if (cnEl) cnEl.textContent = '';
     return;
   }
   const isDemo = getUrl() === 'DEMO';
   const n = getQueue().length;
   const online = navigator.onLine;
-  subEl.textContent = isDemo ? 'PT. Agri Wangi Berry · Demo'
-    : online ? 'PT. Agri Wangi Berry · Online'
-    : 'PT. Agri Wangi Berry · Offline';
-  cnEl.textContent = isDemo ? '🎬 Mode demo'
+  if (cnEl) cnEl.textContent = isDemo ? '🎬 Mode demo'
     : online ? '🟢 Online' : '🔴 Offline · lokal';
-  syEl.textContent = isDemo ? '' : n
-    ? '· ' + n + ' perubahan menunggu sync'
-    : '· tersinkron otomatis';
+  syEl.textContent = isDemo
+    ? 'Menampilkan data contoh — siap dipakai'
+    : n ? '· ' + n + ' perubahan menunggu sync'
+        : '· tersinkron otomatis';
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -261,10 +368,11 @@ function renderWelcome(){
   const m = $('#m');
   if (!m) return;
   m.innerHTML = `<div class="card welcome">
-    <div class="ico">⚡</div>
-    <h2>Sambungkan ke Google Sheet</h2>
-    <p>Ketuk sekali untuk memuat data dan mulai<br>mengelola pembelian, penjualan & gudang.</p>
-    <button class="btn-big" onclick="connect()">Sambung</button>
+    <div class="ico">🌱</div>
+    <h2>Selamat Datang di IMB</h2>
+    <p>Integrated Multi Business — sistem manajemen<br>
+    pembelian, penjualan &amp; stok untuk 5 cabang usaha.</p>
+    <button class="btn-big" onclick="connect()">Mulai</button>
     <a href="#" class="demo" onclick="demoMode();return false">Coba mode demo dulu</a>
     <div class="feats">
       <b>✓ Tanpa daftar</b> — langsung pakai<br>
@@ -504,10 +612,8 @@ function boot(){
     renderWelcome();
     return;
   }
-  // Tampilkan view yang aktif
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + view));
   refreshAll();
 }
 
-/* Panggil boot() setelah app.js load views */
 window.bootApp = boot;

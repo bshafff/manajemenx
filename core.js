@@ -365,15 +365,22 @@ function refreshAll(){
    WELCOME / CONNECT
    ═══════════════════════════════════════════════════════════════ */
 function renderWelcome(){
-  const m = $('#m');
-  if (!m) return;
-  m.innerHTML = `<div class="card welcome">
+  const w = document.getElementById('welcome');
+  if (!w) return;
+
+  // Sembunyikan main content & nav
+  const m = document.getElementById('m');
+  const nav = document.getElementById('nav');
+  if (m) m.style.display = 'none';
+  if (nav) nav.style.display = 'none';
+
+  w.style.display = 'block';
+  w.innerHTML = `<div class="card welcome">
     <div class="ico">🌱</div>
     <h2>Selamat Datang di IMB</h2>
     <p>Integrated Multi Business — sistem manajemen<br>
     pembelian, penjualan &amp; stok untuk 5 cabang usaha.</p>
     <button class="btn-big" onclick="connect()">Mulai</button>
-    <a href="#" class="demo" onclick="demoMode();return false">Coba mode demo dulu</a>
     <div class="feats">
       <b>✓ Tanpa daftar</b> — langsung pakai<br>
       <b>✓ Bisa offline</b> — data tersimpan lokal<br>
@@ -383,16 +390,19 @@ function renderWelcome(){
   </div>`;
 }
 
+function hideWelcome(){
+  const w = document.getElementById('welcome');
+  const m = document.getElementById('m');
+  const nav = document.getElementById('nav');
+  if (w){ w.style.display = 'none'; w.innerHTML = ''; }
+  if (m) m.style.display = 'block';
+  if (nav) nav.style.display = 'flex';
+}
+
 function connect(){
   localStorage[K_URL] = DEFAULT_URL;
   toast('Menyambungkan…');
-  boot();
-}
-
-function demoMode(){
-  localStorage[K_URL] = 'DEMO';
-  if (!localStorage[K_DATA]) persist();
-  toast('Mode demo — data contoh');
+  // Boot tanpa harus reload — views masih di #m
   boot();
 }
 
@@ -440,7 +450,8 @@ function closeModal(){
   modalOk = null;
 }
 document.addEventListener('DOMContentLoaded', () => {
-  $('#modal').onclick = e => { if (e.target.id === 'modal') closeModal(); };
+  const md = $('#modal');
+  if (md) md.onclick = e => { if (e.target.id === 'modal') closeModal(); };
 });
 
 /* ═══════════════════════════════════════════════════════════════
@@ -495,13 +506,19 @@ async function checkUpdate(silent){
     const r = await fetch('./version.json?t=' + Date.now(), { cache: 'no-store' });
     const j = await r.json();
     const seen = localStorage.app_v;
-    if (!seen){ localStorage.app_v = j.v; return 'first'; }
-    if (j.v !== seen){
-      console.log('Versi baru:', j.v, '(lama:', seen, ')');
-      localStorage.app_v = j.v;
-      return j.v;
+
+    // First run: simpan versi, tidak reload
+    if (!seen){
+      localStorage.app_v = String(j.v);
+      return 'first';
     }
-    if (!silent) toast('Sudah versi terbaru');
+    // Fix bug: compare as string (2 !== "2" sebelumnya!)
+    if (String(j.v) !== String(seen)){
+      console.log('Versi baru:', j.v, '(lama:', seen, ')');
+      localStorage.app_v = String(j.v);
+      return String(j.v);
+    }
+    if (!silent) toast('✓ Sudah versi terbaru');
     return 'latest';
   } catch(e){
     console.warn('Cek update gagal:', e);
@@ -527,11 +544,24 @@ async function hardReset(){
 async function manualUpdate(){
   toast('Memeriksa update…');
   const r = await checkUpdate(true);
-  if (r === 'error'){ toast('Gagal cek update, periksa koneksi', 'error'); return; }
-  if (r === 'first'){ toast('Versi tersimpan, memuat ulang…'); await hardReset(); return; }
-  if (r === 'latest'){ toast('Sudah versi terbaru · refresh…'); setTimeout(hardReset, 700); return; }
-  toast('Versi baru ' + r + ' · memuat ulang…');
-  setTimeout(hardReset, 700);
+
+  if (r === 'error'){
+    toast('Gagal cek update, periksa koneksi', 'error');
+    return;
+  }
+  if (r === 'first'){
+    // Pertama kali — simpan versi, gak perlu reload
+    toast('✓ Sudah versi terbaru');
+    return;
+  }
+  if (r === 'latest'){
+    // Sudah versi terbaru — CUKUP TOAST, jangan reload!
+    toast('✓ Sudah versi terbaru');
+    return;
+  }
+  // Ada versi baru — reload
+  toast('🔄 Versi baru ' + r + ' · memuat ulang…');
+  setTimeout(hardReset, 800);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -596,22 +626,23 @@ if (_api){
   localStorage[K_URL] = _api;
   history.replaceState(null, '', location.pathname);
 }
-
-/* URL parameter ?fresh=... → ignore */
 if (new URLSearchParams(location.search).get('fresh')){
   history.replaceState(null, '', location.pathname);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   BOOT
+   BOOT — dipanggil setelah views di-load oleh app.js
    ═══════════════════════════════════════════════════════════════ */
 function boot(){
-  renderNav();
-  updateStatus();
   if (!hasUrl()){
+    // Belum sambung — tampilkan welcome, hide main
     renderWelcome();
     return;
   }
+  // Sudah sambung — sembunyikan welcome, tampilkan main
+  hideWelcome();
+  renderNav();
+  updateStatus();
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + view));
   refreshAll();
 }

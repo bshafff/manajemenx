@@ -1,9 +1,8 @@
-const CACHE = 'erpku-v1';
+const CACHE = 'erpku-v2';
 
 self.addEventListener('install', e => {
   e.waitUntil(self.skipWaiting());
 });
-
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
@@ -13,7 +12,6 @@ self.addEventListener('activate', e => {
       .then(() => self.clients.claim())
   );
 });
-
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
@@ -26,8 +24,9 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Dokumen: network-first
-  if (req.mode === 'navigate' || req.destination === 'document'){
+  // Dokumen & HTML views: network-first
+  if (req.mode === 'navigate' || req.destination === 'document'
+      || url.pathname.endsWith('.html')){
     e.respondWith(
       fetch(req).then(res => {
         const cp = res.clone();

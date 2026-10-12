@@ -8,9 +8,14 @@ body{margin:0;background:var(--bg);color:var(--ink);
   font:15px/1.45 Figtree,system-ui,sans-serif;padding-bottom:76px;
   -webkit-font-smoothing:antialiased}
 h1,h2,.num{font-family:Fraunces,Georgia,serif;font-weight:600;letter-spacing:-.3px}
-header{background:linear-gradient(135deg,#2d5016 0%,#5a8f3a 100%);
-  color:#fff;padding:calc(16px + env(safe-area-inset-top)) 16px 18px;
-  box-shadow:0 2px 8px rgba(0,0,0,.1);position:relative}
+header{
+  background:linear-gradient(135deg,#2d5016 0%,#5a8f3a 100%);
+  color:#fff;
+  padding:calc(16px + env(safe-area-inset-top)) 16px 18px;
+  box-shadow:0 2px 8px rgba(0,0,0,.1);
+  position:relative;
+  text-align:center;
+}
 header h1{margin:0;font-size:21px}
 header .hbtns{position:absolute;right:12px;top:calc(12px + env(safe-area-inset-top));
   display:flex;gap:6px}

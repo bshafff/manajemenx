@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    KONFIGURASI
    ═══════════════════════════════════════════════════════════════ */
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwxU2VCAinCcXKmi-ZJ3xqUpZlWN5DYQ7ORsXzGwvRRiZQvJED2B-vbTfWyGzcmjI4/exec';
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbzGEHDt8USdnMKzNhdaNHVSaRP9hbxCpifPFAI2gCmVddnVkeXNMqnMrKopihXm0PYZ/exec';
 
 /* ═══════════════════════════════════════════════════════════════
    UTIL

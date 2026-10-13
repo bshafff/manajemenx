@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    KONFIGURASI
    ═══════════════════════════════════════════════════════════════ */
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbzpc62P_YMRxlaYnwGvQDxWRrU59u6Emg4h9yaFcqzoXs195Ru0V97XVAmNHl78FN27/exec';
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbyC8yxByi0lmkQlujnR1Px5QmwGVF-PIlMqjofvEXN--BStn1vQu0WbPBukU0i8Vmrl/exec';
 const API_KEY = 'ERP_2026';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -313,10 +313,17 @@ async function bootstrapSync(){
   toast('Memuat dari Google Sheet…');
 
   try {
-    // 1) PULL dari Sheet
+    // 1) PULL dari Sheet — pakai .text() + JSON.parse manual (CORS-safe)
     const pullUrl = getUrl() + '?action=pull&key=' + encodeURIComponent(API_KEY);
     const res = await fetch(pullUrl);
-    const json = await res.json();
+    const txt = await res.text();
+    let json;
+    try {
+      json = JSON.parse(txt);
+    } catch(e){
+      console.warn('Response bukan JSON:', txt.slice(0, 300));
+      throw new Error('Sheet response tidak valid');
+    }
 
     if (json && json.ok && json.data){
       const d = json.data;

@@ -1,7 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════
    KONFIGURASI
    ═══════════════════════════════════════════════════════════════ */
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbzGEHDt8USdnMKzNhdaNHVSaRP9hbxCpifPFAI2gCmVddnVkeXNMqnMrKopihXm0PYZ/exec';
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbzpc62P_YMRxlaYnwGvQDxWRrU59u6Emg4h9yaFcqzoXs195Ru0V97XVAmNHl78FN27/exec';
+const API_KEY = 'ERP_2026';
 
 /* ═══════════════════════════════════════════════════════════════
    UTIL
@@ -25,7 +26,7 @@ function toast(msg, type, ms){
   t.className = type === 'error' ? 'error' : '';
   t.style.display = 'block';
   clearTimeout(window._tt);
-  window._tt = setTimeout(() => t.style.display = 'none', ms || 1800);
+  window._tt = setTimeout(() => t.style.display = 'none', ms || 2200);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -34,6 +35,7 @@ function toast(msg, type, ms){
 const K_URL   = 'erp_url';
 const K_DATA  = 'erp_data_v2';
 const K_QUEUE = 'erp_queue_v2';
+const K_BOOT  = 'erp_bootstrapped';
 
 const getUrl    = () => localStorage[K_URL] || '';
 const hasUrl    = () => !!localStorage[K_URL];
@@ -235,7 +237,7 @@ function stokKeluar(id, qty){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SYNC
+   SYNC — kirim antrean ke Apps Script
    ═══════════════════════════════════════════════════════════════ */
 let busy = false;
 
@@ -296,6 +298,89 @@ function updateStatus(){
     ? 'Menampilkan data contoh — siap dipakai'
     : n ? '· ' + n + ' perubahan menunggu sync'
         : '· tersinkron otomatis';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BOOTSTRAP SYNC — Push / Pull data saat pertama connect
+   ═══════════════════════════════════════════════════════════════ */
+async function bootstrapSync(){
+  if (!hasUrl() || getUrl() === 'DEMO') return;
+  if (!navigator.onLine){
+    toast('Offline — data akan disync otomatis saat online');
+    return;
+  }
+
+  toast('Memuat dari Google Sheet…');
+
+  try {
+    // 1) PULL dari Sheet
+    const pullUrl = getUrl() + '?action=pull&key=' + encodeURIComponent(API_KEY);
+    const res = await fetch(pullUrl);
+    const json = await res.json();
+
+    if (json && json.ok && json.data){
+      const d = json.data;
+      const sheetAdaIsi =
+        (d.barang && d.barang.length) ||
+        (d.pembelian && d.pembelian.length) ||
+        (d.penjualan && d.penjualan.length) ||
+        (d.pembayaran && d.pembayaran.length) ||
+        (d.penerimaan && d.penerimaan.length);
+
+      if (sheetAdaIsi){
+        if (d.barang && d.barang.length)       S.barang     = d.barang;
+        if (d.pembelian)                        S.pembelian  = d.pembelian;
+        if (d.penjualan)                        S.penjualan  = d.penjualan;
+        if (d.pembayaran)                       S.pembayaran = d.pembayaran;
+        if (d.penerimaan)                       S.penerimaan = d.penerimaan;
+        if (d.permintaan)                       S.permintaan = d.permintaan;
+        if (d.pesanan)                          S.pesanan    = d.pesanan;
+        if (d.kk && d.kk.length){
+          S.kasKecil.mutasi = d.kk;
+        }
+        persist();
+        refreshAll();
+        localStorage[K_BOOT] = '1';
+        toast('✓ Data dimuat dari Sheet (' +
+              (d.barang ? d.barang.length : 0) + ' barang)');
+        return;
+      }
+    }
+
+    // 2) Sheet kosong → PUSH semua data lokal
+    pushAllToSheet();
+
+  } catch(e){
+    console.warn('Bootstrap pull gagal:', e);
+    // Kalau pull gagal, tetap push lokal
+    pushAllToSheet();
+  }
+}
+
+function pushAllToSheet(){
+  let count = 0;
+  const push = (type, record) => {
+    if (!record || !record.id) return;
+    queue({ type, action: 'upsert', record });
+    count++;
+  };
+
+  S.barang.forEach(b => push('barang', b));
+  S.pembelian.forEach(p => push('pembelian', p));
+  S.penjualan.forEach(p => push('penjualan', p));
+  (S.pembayaran || []).forEach(p => push('pembayaran', p));
+  (S.penerimaan || []).forEach(p => push('penerimaan', p));
+  (S.permintaan || []).forEach(p => push('permintaan', p));
+  (S.pesanan || []).forEach(p => push('pesanan', p));
+  S.kasKecil.mutasi.forEach(m => push('kk', m));
+
+  localStorage[K_BOOT] = '1';
+
+  if (count > 0){
+    toast('⬆ Mengirim ' + count + ' data ke Sheet…');
+  } else {
+    toast('Tidak ada data untuk dikirim');
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -368,7 +453,6 @@ function renderWelcome(){
   const w = document.getElementById('welcome');
   if (!w) return;
 
-  // Sembunyikan main content & nav
   const m = document.getElementById('m');
   const nav = document.getElementById('nav');
   if (m) m.style.display = 'none';
@@ -402,8 +486,9 @@ function hideWelcome(){
 function connect(){
   localStorage[K_URL] = DEFAULT_URL;
   toast('Menyambungkan…');
-  // Boot tanpa harus reload — views masih di #m
   boot();
+  // Setelah boot, langsung pull/push data dari/ke Sheet
+  setTimeout(() => bootstrapSync(), 600);
 }
 
 function cfg(){
@@ -507,12 +592,10 @@ async function checkUpdate(silent){
     const j = await r.json();
     const seen = localStorage.app_v;
 
-    // First run: simpan versi, tidak reload
     if (!seen){
       localStorage.app_v = String(j.v);
       return 'first';
     }
-    // Fix bug: compare as string (2 !== "2" sebelumnya!)
     if (String(j.v) !== String(seen)){
       console.log('Versi baru:', j.v, '(lama:', seen, ')');
       localStorage.app_v = String(j.v);
@@ -550,16 +633,13 @@ async function manualUpdate(){
     return;
   }
   if (r === 'first'){
-    // Pertama kali — simpan versi, gak perlu reload
     toast('✓ Sudah versi terbaru');
     return;
   }
   if (r === 'latest'){
-    // Sudah versi terbaru — CUKUP TOAST, jangan reload!
     toast('✓ Sudah versi terbaru');
     return;
   }
-  // Ada versi baru — reload
   toast('🔄 Versi baru ' + r + ' · memuat ulang…');
   setTimeout(hardReset, 800);
 }
@@ -631,15 +711,13 @@ if (new URLSearchParams(location.search).get('fresh')){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   BOOT — dipanggil setelah views di-load oleh app.js
+   BOOT
    ═══════════════════════════════════════════════════════════════ */
 function boot(){
   if (!hasUrl()){
-    // Belum sambung — tampilkan welcome, hide main
     renderWelcome();
     return;
   }
-  // Sudah sambung — sembunyikan welcome, tampilkan main
   hideWelcome();
   renderNav();
   updateStatus();

@@ -1,359 +1,56 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<meta name="theme-color" content="#3d6b28"/>
-<title>AWB · Agri Wangi Berry</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-:root{
-  --green-dark:#3d6b28; --green:#4b7c32; --green-light:#6ba33a;
-  --bg:#f4f6f4; --card:#ffffff; --txt:#1f2937; --mut:#6b7280;
-  --line:#e5e7eb; --shadow:0 2px 10px rgba(0,0,0,.04);
-}
-html,body{height:100%}
-body{
-  font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  background:var(--bg); color:var(--txt);
-  padding-bottom:calc(80px + env(safe-area-inset-bottom));
-  -webkit-font-smoothing:antialiased; overscroll-behavior-y:none;
-}
-/* ============ HEADER ============ */
-header{
-  background:linear-gradient(160deg, var(--green-dark), var(--green-light));
-  color:#fff; padding:24px 16px 30px; text-align:center; position:relative;
-  border-radius:0 0 20px 20px;
-}
-header h1{font-size:28px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px}
-header .sub{font-size:13.5px;opacity:.9}
-header .sync-info{font-size:12px;opacity:.8;margin-top:6px}
-.badge-online{
-  display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.2);
-  border:1px solid rgba(255,255,255,.3);padding:4px 12px;border-radius:99px;
-  font-size:12px;font-weight:600;margin-top:8px;
-}
-.dot{width:8px;height:8px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 3px rgba(74,222,128,.3)}
-.sync-btn{
-  position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);
-  border:1px solid rgba(255,255,255,.3);color:#fff;padding:6px 14px;border-radius:99px;
-  font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;
-}
-.sync-btn:active{background:rgba(255,255,255,.3)}
-.sync-btn:disabled{opacity:.7;cursor:wait}
-.update-btn{
-  position:absolute;top:16px;right:105px;background:#f59e0b;color:#fff;
-  border:0;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;
-  display:none;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.2);
-}
-.update-btn.show{display:flex;animation:pulse 1.5s infinite}
-@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
-
-/* ============ KONTEN ============ */
-main{max-width:680px;margin:0 auto;padding:16px;margin-top:-20px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.card{
-  background:var(--card); border-radius:12px; padding:16px;
-  box-shadow:var(--shadow); border-left:5px solid transparent;
-}
-.card.full{grid-column:1 / -1}
-.card .label{font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
-.card .value{font-size:22px;font-weight:800;margin-top:6px;letter-spacing:-.5px}
-.card .desc{font-size:12px;color:var(--mut);margin-top:4px}
-.border-green{border-left-color:#4b7c32}
-.border-purple{border-left-color:#a855f7}
-.border-orange{border-left-color:#f59e0b}
-.border-red{border-left-color:#ef4444}
-.text-green{color:#4b7c32}
-.divider{height:1px;background:var(--line);margin:14px 0}
-
-/* ============ BOTTOM NAV ============ */
-nav.bottom{
-  position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);
-  display:flex;justify-content:space-around;padding:8px 0 calc(8px + env(safe-area-inset-bottom));
-  z-index:50;box-shadow:0 -2px 10px rgba(0,0,0,.03);
-}
-nav.bottom button{
-  background:none;border:0;color:#9ca3af;font-size:11px;font-weight:600;
-  display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;
-  padding:4px 8px;border-radius:8px;font-family:inherit;flex:1;
-}
-nav.bottom button .ico{font-size:20px;line-height:1}
-nav.bottom button.active{color:var(--green)}
-nav.bottom button:active{background:#f0fdf4}
-
-/* ============ HALAMAN SELAMAT DATANG ============ */
-#welcome{
-  position:fixed;inset:0;background:#fff;z-index:100;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:30px 20px;text-align:center;
-}
-#welcome.hide{display:none !important}
-#welcome .logo-tunas{font-size:64px;margin-bottom:16px;line-height:1}
-#welcome h2{font-size:26px;font-weight:800;color:var(--green-dark);margin-bottom:10px}
-#welcome p{font-size:14px;color:var(--mut);max-width:340px;line-height:1.6;margin-bottom:24px}
-#welcome .btn-mulai{
-  background:var(--green-dark);color:#fff;border:0;padding:14px 60px;border-radius:99px;
-  font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 6px 18px rgba(61,107,40,.3);
-  transition:.2s;font-family:inherit;
-}
-#welcome .btn-mulai:active{transform:scale(.96)}
-#welcome .fitur{
-  margin-top:32px;text-align:left;font-size:13.5px;color:var(--txt);
-  background:#f9fafb;padding:16px 20px;border-radius:12px;width:100%;max-width:340px;
-}
-#welcome .fitur div{margin-bottom:8px;display:flex;gap:8px}
-#welcome .fitur div:last-child{margin-bottom:0}
-#welcome .fitur .check{color:var(--green);font-weight:800}
-
-/* Tombol Install Aplikasi — FAB kecil kanan bawah */
-#installBtn{
-  position:fixed;
-  right:16px;
-  bottom:calc(90px + env(safe-area-inset-bottom));
-  background:var(--green-dark);color:#fff;border:0;
-  width:52px;height:52px;border-radius:50%;
-  font-size:22px;cursor:pointer;
-  box-shadow:0 8px 24px rgba(61,107,40,.4);
-  display:none;align-items:center;justify-content:center;z-index:60;
-  transition:.2s;
-}
-#installBtn.show{display:flex}
-#installBtn:active{transform:scale(.92)}
-
-/* Toast */
-.toast{position:fixed;bottom:120px;left:50%;transform:translateX(-50%) translateY(80px);
-  background:#1f2937;color:#fff;padding:10px 20px;border-radius:99px;font-size:13px;
-  font-weight:600;z-index:200;transition:.3s;pointer-events:none;white-space:nowrap}
-.toast.show{transform:translateX(-50%) translateY(0)}
-</style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2d5016">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="IMB">
+<title>AWB · Manajemen</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- ================= HALAMAN SELAMAT DATANG ================= -->
-<div id="welcome">
-  <div class="logo-tunas">🌱</div>
-  <h2>Selamat Datang di IMB</h2>
-  <p>Integrated Multi Business — sistem manajemen pembelian, penjualan & stok untuk 5 cabang usaha.</p>
-  <button class="btn-mulai" id="btnMulai">Mulai</button>
-  <div class="fitur">
-    <div><span class="check">✓</span> <b>Tanpa daftar</b> — langsung pakai</div>
-    <div><span class="check">✓</span> <b>Bisa offline</b> — data tersimpan lokal</div>
-    <div><span class="check">✓</span> <b>Sinkron otomatis</b> — ke Google Sheet</div>
-    <div><span class="check">✓</span> <b>Install sebagai app</b> — dari browser HP</div>
+<header>
+  <div class="hbtns">
+    <button onclick="sync()" title="Sinkron ke Google Sheet">☁ Sync</button>
+    <button onclick="manualUpdate()" title="Cek versi terbaru">🔄</button>
   </div>
-</div>
+  <h1>AWB</h1>
+  <div class="sub" id="companyName">PT. Agri Wangi Berry</div>
+  <span class="status" id="sy"></span>
+  <div class="badge-wrap"><span class="badge" id="cn"></span></div>
+</header>
 
-<!-- ================= APP SHELL ================= -->
-<div id="app" style="display:none">
-  <header>
-    <button class="update-btn" id="updateBtn" title="Update tersedia">⬆️</button>
-    <button class="sync-btn" id="syncBtn">☁️ Sync</button>
-    <h1>AWB</h1>
-    <div class="sub">PT. Agri Wangi Berry</div>
-    <div class="sync-info">· tersinkron otomatis</div>
-    <div class="badge-online"><span class="dot"></span> Online</div>
-  </header>
+<div id="st"></div>
 
-  <main>
-    <div class="grid">
-      <div class="card border-green">
-        <div class="label">Kas Utama</div>
-        <div class="value">Rp0</div>
-        <div class="desc">Saldo tunai</div>
-      </div>
-      <div class="card border-purple">
-        <div class="label">Kas Kecil</div>
-        <div class="value">Rp0</div>
-        <div class="desc">Petty cash</div>
-      </div>
-      <div class="card border-orange">
-        <div class="label">Piutang</div>
-        <div class="value">Rp0</div>
-        <div class="desc">Belum tertagih</div>
-      </div>
-      <div class="card border-red">
-        <div class="label">Hutang</div>
-        <div class="value">Rp0</div>
-        <div class="desc">Ke supplier</div>
-      </div>
-      <div class="card border-green">
-        <div class="label">Persediaan</div>
-        <div class="value">Rp0</div>
-        <div class="desc">0 SKU</div>
-      </div>
-      <div class="card border-green">
-        <div class="label">Stok Kritis</div>
-        <div class="value text-green">0</div>
-        <div class="desc">≤ 5 unit</div>
-      </div>
+<main>
+  <div id="welcome"></div>
+  <div id="m"></div>
+</main>
 
-      <div class="card full border-green">
-        <div class="label">Laba / Rugi</div>
-        <div class="divider"></div>
-        <div class="desc">Laba bersih</div>
-        <div class="value text-green" style="font-size:26px;margin-top:2px">Rp0</div>
-      </div>
-    </div>
-  </main>
+<nav id="nav"></nav>
 
-  <nav class="bottom">
-    <button class="active"><span class="ico">🏠</span>Ringkasan</button>
-    <button><span class="ico">📦</span>Barang</button>
-    <button><span class="ico">🛒</span>Beli</button>
-    <button><span class="ico">🧾</span>Jual</button>
-    <button><span class="ico">⚙️</span>Lainnya</button>
-  </nav>
-</div>
+<div id="modal"><div class="mc" id="mc"></div></div>
 
-<!-- Tombol Install — FAB kecil -->
-<button id="installBtn" title="Install Aplikasi">⬇️</button>
-
-<!-- Toast -->
-<div class="toast" id="toast"></div>
-
-<script>
-/* =========================================================
-   DATA — semua 0
-   ========================================================= */
-const state = {
-  kasUtama: 0, kasKecil: 0, piutang: 0, hutang: 0,
-  persediaan: 0, stokKritis: 0, labaBersih: 0,
-  barang: [], pembelian: [], penjualan: [],
-};
-
-const $ = s => document.querySelector(s);
-const rp = n => 'Rp' + new Intl.NumberFormat('id-ID').format(n || 0);
-function toast(msg){
-  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2000);
-}
-
-/* =========================================================
-   TAMPILKAN APP SETELAH KLIK "MULAI"
-   ========================================================= */
-function tampilkanApp(){
-  $('#welcome').classList.add('hide');
-  $('#app').style.display = 'block';
-}
-$('#btnMulai').onclick = () => {
-  localStorage.setItem('sudahMasuk', '1');
-  tampilkanApp();
-};
-// Kalau sudah pernah masuk, langsung ke dashboard
-if (localStorage.getItem('sudahMasuk') === '1') {
-  tampilkanApp();
-}
-
-/* =========================================================
-   TOMBOL SYNC OTOMATIS
-   ========================================================= */
-$('#syncBtn').onclick = async () => {
-  const btn = $('#syncBtn');
-  const original = btn.innerHTML;
-  btn.innerHTML = '⏳ Menyinkron...';
-  btn.disabled = true;
-
-  try {
-    // Ganti URL_API dengan Google Apps Script milik Anda
-    const URL_API = 'https://script.google.com/macros/s/XXXXX/exec';
-
-    // Simulasi (karena data masih 0)
-    await new Promise(r => setTimeout(r, 1200));
-
-    // Contoh fetch asli — buka komentar kalau backend siap:
-    // const res = await fetch(URL_API, {
-    //   method: 'POST', body: JSON.stringify({ data: state })
-    // });
-    // const hasil = await res.json();
-    // if (hasil.status !== 'ok') throw new Error('Gagal');
-
-    localStorage.setItem('terakhirSync', new Date().toISOString());
-    btn.innerHTML = '✅ Tersinkron';
-    toast('Data berhasil disinkronkan');
-  } catch (e) {
-    btn.innerHTML = '❌ Gagal';
-    toast('Gagal sinkron: ' + e.message);
-  } finally {
-    setTimeout(() => {
-      btn.innerHTML = original;
-      btn.disabled = false;
-    }, 2000);
-  }
-};
-
-// Sync otomatis saat kembali online
-window.addEventListener('online', () => {
-  toast('Kembali online, menyinkron...');
-  $('#syncBtn').click();
-});
-
-/* =========================================================
-   DETEKSI UPDATE DARI GITHUB (PWA)
-   ========================================================= */
-let swRegistration = null;
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').then(reg => {
-      swRegistration = reg;
-      reg.update();
-
-      reg.addEventListener('updatefound', () => {
-        const newWorker = reg.installing;
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            $('#updateBtn').classList.add('show');
-            toast('Update tersedia! Klik ikon ⬆️');
-          }
-        });
-      });
-    }).catch(err => console.log('SW gagal:', err));
-  });
-
-  $('#updateBtn').onclick = async () => {
-    if (!swRegistration) return;
-    await swRegistration.update();
-    if (swRegistration.waiting) {
-      swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
-    }
-    setTimeout(() => location.reload(), 500);
-  };
-
-  let refreshing = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!refreshing) { refreshing = true; window.location.reload(); }
-  });
-}
-
-/* =========================================================
-   TOMBOL INSTALL (PWA) — FAB KECIL
-   ========================================================= */
-let deferredPrompt = null;
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  $('#installBtn').classList.add('show');
-});
-
-$('#installBtn').onclick = async () => {
-  if (!deferredPrompt){
-    toast('Buka menu browser → "Tambahkan ke layar utama"');
-    return;
-  }
-  deferredPrompt.prompt();
-  const { outcome } = await deferredPrompt.userChoice;
-  if (outcome === 'accepted') {
-    $('#installBtn').classList.remove('show');
-    toast('Aplikasi berhasil diinstall');
-  }
-  deferredPrompt = null;
-};
-
-window.addEventListener('appinstalled', () => {
-  $('#installBtn').classList.remove('show');
-  toast('Aplikasi sudah terinstall');
-});
-</script>
+<script src="./core.js"></script>
+<script src="./mod-dashboard.js"></script>
+<script src="./mod-barang.js"></script>
+<script src="./mod-pembelian.js"></script>
+<script src="./mod-penjualan.js"></script>
+<script src="./mod-pembayaran.js"></script>
+<script src="./mod-penerimaan.js"></script>
+<script src="./mod-kaskecil.js"></script>
+<script src="./mod-permintaan.js"></script>
+<script src="./mod-pesanan.js"></script>
+<script src="./mod-stok.js"></script>
+<script src="./mod-jurnal.js"></script>
+<script src="./app.js"></script>
 </body>
 </html>

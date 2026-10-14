@@ -5,6 +5,17 @@ const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbyC8yxByi0lmkQlujnR
 const API_KEY = 'ERP_2026';
 
 /* ═══════════════════════════════════════════════════════════════
+   LINI USAHA — PT. Insan Muda Berdikari
+   ═══════════════════════════════════════════════════════════════ */
+const LINI = {
+  SB: { nama: 'Stroberi',   ico: '🍓', warna: '#dc2626' },
+  DR: { nama: 'Dairy',      ico: '🥛', warna: '#2563eb' },
+  AY: { nama: 'Ayam',       ico: '🐔', warna: '#b45309' },
+  PK: { nama: 'Pakan Ayam', ico: '🌾', warna: '#16a34a' },
+};
+const liniOf = kode => String(kode || '').split('-')[0].toUpperCase();
+
+/* ═══════════════════════════════════════════════════════════════
    UTIL
    ═══════════════════════════════════════════════════════════════ */
 const $  = s => document.querySelector(s);
@@ -33,7 +44,7 @@ function toast(msg, type, ms){
    STORAGE
    ═══════════════════════════════════════════════════════════════ */
 const K_URL   = 'erp_url';
-const K_DATA  = 'erp_data_v2';
+const K_DATA  = 'erp_data_v3';     // ← bumped (struktur baru)
 const K_QUEUE = 'erp_queue_v2';
 const K_BOOT  = 'erp_bootstrapped';
 
@@ -44,125 +55,84 @@ const getQueue  = () => { try { return JSON.parse(localStorage[K_QUEUE] || '[]')
 const setQueue  = q => { localStorage[K_QUEUE] = JSON.stringify(q); updateStatus(); };
 
 /* ═══════════════════════════════════════════════════════════════
-   STATE — IMB (Integrated Multi Business)
-   5 Cabang: Strawberry · Hidroponik · Kopi · Nursery · Sayur
+   STATE — 4 lini: Stroberi · Dairy · Ayam · Pakan Ayam
    ═══════════════════════════════════════════════════════════════ */
 function seed(){
   return {
     kas: 120000000,
     kasKecil: { saldo: 7500000, mutasi: [] },
     barang: [
-      // ═══ CABANG STRAWBERRY ═══
-      { id:uid(), kode:'SW-001', nama:'Bibit Stroberi Sweet Charlie',
-        satuan:'polybag', hargaBeli:3500, hargaJual:7500,
-        stok:500, tipe:'bahan' },
-      { id:uid(), kode:'SW-002', nama:'Bibit Stroberi Californica',
-        satuan:'polybag', hargaBeli:4000, hargaJual:8500,
-        stok:300, tipe:'bahan' },
-      { id:uid(), kode:'SW-003', nama:'Net Pot Stroberi',
-        satuan:'pcs', hargaBeli:1200, hargaJual:0,
-        stok:800, tipe:'bahan' },
-      { id:uid(), kode:'SW-101', nama:'Stroberi Segar Grade A',
-        satuan:'kg', hargaBeli:0, hargaJual:95000,
-        stok:0, tipe:'jadi' },
-      { id:uid(), kode:'SW-102', nama:'Stroberi Frozen',
-        satuan:'kg', hargaBeli:0, hargaJual:65000,
-        stok:0, tipe:'jadi' },
-      { id:uid(), kode:'SW-103', nama:'Stroberi Curah (Grade B)',
-        satuan:'kg', hargaBeli:0, hargaJual:45000,
-        stok:0, tipe:'jadi' },
+      /* ═══ LINI STROBERI (SB) ═══ */
+      { id:uid(), lini:'SB', kode:'SB-B01', nama:'Bibit Stroberi Sweet Charlie',
+        satuan:'polybag', hargaBeli:3500,  hargaJual:7500,   stok:500, tipe:'bahan' },
+      { id:uid(), lini:'SB', kode:'SB-B02', nama:'Bibit Stroberi Californica',
+        satuan:'polybag', hargaBeli:4000,  hargaJual:8500,   stok:300, tipe:'bahan' },
+      { id:uid(), lini:'SB', kode:'SB-B03', nama:'Net Pot Stroberi',
+        satuan:'pcs',     hargaBeli:1200,  hargaJual:0,      stok:800, tipe:'bahan' },
+      { id:uid(), lini:'SB', kode:'SB-B04', nama:'Media Tanam Stroberi',
+        satuan:'karung',  hargaBeli:28000, hargaJual:0,      stok:60,  tipe:'bahan' },
+      { id:uid(), lini:'SB', kode:'SB-J01', nama:'Stroberi Segar Grade A',
+        satuan:'kg',      hargaBeli:0,     hargaJual:95000,  stok:0,   tipe:'jadi' },
+      { id:uid(), lini:'SB', kode:'SB-J02', nama:'Stroberi Frozen',
+        satuan:'kg',      hargaBeli:0,     hargaJual:65000,  stok:0,   tipe:'jadi' },
+      { id:uid(), lini:'SB', kode:'SB-J03', nama:'Stroberi Curah (Grade B)',
+        satuan:'kg',      hargaBeli:0,     hargaJual:45000,  stok:0,   tipe:'jadi' },
 
-      // ═══ CABANG HIDROPONIK ═══
-      { id:uid(), kode:'HD-001', nama:'Benih Selada Keriting',
-        satuan:'gram', hargaBeli:8000, hargaJual:18000,
-        stok:50, tipe:'bahan' },
-      { id:uid(), kode:'HD-002', nama:'Nutrisi AB Mix Sayuran Daun',
-        satuan:'paket', hargaBeli:125000, hargaJual:0,
-        stok:25, tipe:'bahan' },
-      { id:uid(), kode:'HD-003', nama:'Rockwool Semai',
-        satuan:'lembar', hargaBeli:35000, hargaJual:0,
-        stok:30, tipe:'bahan' },
-      { id:uid(), kode:'HD-004', nama:'Net Pot 5cm',
-        satuan:'pcs', hargaBeli:800, hargaJual:0,
-        stok:1000, tipe:'bahan' },
-      { id:uid(), kode:'HD-101', nama:'Selada Hijau Hidroponik',
-        satuan:'kg', hargaBeli:0, hargaJual:35000,
-        stok:0, tipe:'jadi' },
-      { id:uid(), kode:'HD-102', nama:'Selada Kemasan 250gr',
-        satuan:'pack', hargaBeli:0, hargaJual:12000,
-        stok:0, tipe:'jadi' },
-      { id:uid(), kode:'HD-103', nama:'Pakcoy Hidroponik',
-        satuan:'kg', hargaBeli:0, hargaJual:28000,
-        stok:0, tipe:'jadi' },
-      { id:uid(), kode:'HD-104', nama:'Kale Hidroponik',
-        satuan:'kg', hargaBeli:0, hargaJual:55000,
-        stok:0, tipe:'jadi' },
+      /* ═══ LINI DAIRY (DR) ═══ */
+      { id:uid(), lini:'DR', kode:'DR-B01', nama:'Susu Segar Mentah',
+        satuan:'liter',   hargaBeli:12000, hargaJual:0,      stok:200, tipe:'bahan' },
+      { id:uid(), lini:'DR', kode:'DR-B02', nama:'Starter Yogurt',
+        satuan:'sachet',  hargaBeli:15000, hargaJual:0,      stok:40,  tipe:'bahan' },
+      { id:uid(), lini:'DR', kode:'DR-B03', nama:'Rennet / Koagulan',
+        satuan:'botol',   hargaBeli:85000, hargaJual:0,      stok:12,  tipe:'bahan' },
+      { id:uid(), lini:'DR', kode:'DR-B04', nama:'Gula Pasir',
+        satuan:'kg',      hargaBeli:14000, hargaJual:0,      stok:150, tipe:'bahan' },
+      { id:uid(), lini:'DR', kode:'DR-B05', nama:'Botol Kaca 250ml',
+        satuan:'pcs',     hargaBeli:3500,  hargaJual:0,      stok:600, tipe:'bahan' },
+      { id:uid(), lini:'DR', kode:'DR-J01', nama:'Susu Segar Pasteurisasi 1L',
+        satuan:'botol',   hargaBeli:0,     hargaJual:28000,  stok:0,   tipe:'jadi' },
+      { id:uid(), lini:'DR', kode:'DR-J02', nama:'Yogurt Plain 250ml',
+        satuan:'botol',   hargaBeli:0,     hargaJual:18000,  stok:0,   tipe:'jadi' },
+      { id:uid(), lini:'DR', kode:'DR-J03', nama:'Yogurt Stroberi 250ml',
+        satuan:'botol',   hargaBeli:0,     hargaJual:22000,  stok:0,   tipe:'jadi' },
+      { id:uid(), lini:'DR', kode:'DR-J04', nama:'Keju Segar (Fresh Cheese)',
+        satuan:'kg',      hargaBeli:0,     hargaJual:145000, stok:0,   tipe:'jadi' },
 
-      // ═══ CABANG KOPI ═══
-      { id:uid(), kode:'KP-001', nama:'Bibit Kopi Robusta',
-        satuan:'batang', hargaBeli:5000, hargaJual:12000,
-        stok:200, tipe:'bahan' },
-      { id:uid(), kode:'KP-002', nama:'Bibit Kopi Arabika Gayo',
-        satuan:'batang', hargaBeli:8000, hargaJual:18000,
-        stok:150, tipe:'bahan' },
-      { id:uid(), kode:'KP-003', nama:'Karung Goni Kopi',
-        satuan:'pcs', hargaBeli:25000, hargaJual:0,
-        stok:100, tipe:'bahan' },
-      { id:uid(), kode:'KP-101', nama:'Kopi Green Bean Robusta',
-        satuan:'kg', hargaBeli:0, hargaJual:85000,
-        stok:0, tipe:'jadi' },
-      { id:uid(), kode:'KP-102', nama:'Kopi Green Bean Arabika',
-        satuan:'kg', hargaBeli:0, hargaJual:180000,
-        stok:0, tipe:'jadi' },
-      { id:uid(), kode:'KP-103', nama:'Kopi Roasted 200gr',
-        satuan:'pack', hargaBeli:0, hargaJual:65000,
-        stok:0, tipe:'jadi' },
+      /* ═══ LINI AYAM (AY) ═══ */
+      { id:uid(), lini:'AY', kode:'AY-B01', nama:'DOC (Day Old Chick)',
+        satuan:'ekor',    hargaBeli:8500,  hargaJual:0,      stok:500, tipe:'bahan' },
+      { id:uid(), lini:'AY', kode:'AY-B02', nama:'Vitamin & Vaksin Ayam',
+        satuan:'paket',   hargaBeli:125000,hargaJual:0,      stok:20,  tipe:'bahan' },
+      { id:uid(), lini:'AY', kode:'AY-B03', nama:'Sekam / Alas Kandang',
+        satuan:'karung',  hargaBeli:25000, hargaJual:0,      stok:40,  tipe:'bahan' },
+      { id:uid(), lini:'AY', kode:'AY-B04', nama:'Pakan Starter (dari PK)',
+        satuan:'karung',  hargaBeli:385000,hargaJual:0,      stok:60,  tipe:'bahan' },
+      { id:uid(), lini:'AY', kode:'AY-J01', nama:'Ayam Broiler Hidup',
+        satuan:'kg',      hargaBeli:0,     hargaJual:28000,  stok:0,   tipe:'jadi' },
+      { id:uid(), lini:'AY', kode:'AY-J02', nama:'Ayam Potong Karkas',
+        satuan:'kg',      hargaBeli:0,     hargaJual:38000,  stok:0,   tipe:'jadi' },
+      { id:uid(), lini:'AY', kode:'AY-J03', nama:'Telur Ayam Konsumsi',
+        satuan:'kg',      hargaBeli:0,     hargaJual:30000,  stok:0,   tipe:'jadi' },
 
-      // ═══ CABANG NURSERY ═══
-      { id:uid(), kode:'NS-001', nama:'Polybag 20x20',
-        satuan:'pcs', hargaBeli:500, hargaJual:0,
-        stok:3000, tipe:'bahan' },
-      { id:uid(), kode:'NS-002', nama:'Media Tanam (Tanah + Kompos)',
-        satuan:'karung', hargaBeli:35000, hargaJual:0,
-        stok:80, tipe:'bahan' },
-      { id:uid(), kode:'NS-003', nama:'Pupuk Organik Granul',
-        satuan:'karung', hargaBeli:85000, hargaJual:0,
-        stok:40, tipe:'bahan' },
-      { id:uid(), kode:'NS-004', nama:'Mulsa Plastik Hitam Perak',
-        satuan:'roll', hargaBeli:180000, hargaJual:0,
-        stok:15, tipe:'bahan' },
-      { id:uid(), kode:'NS-101', nama:'Bibit Tomat Siap Tanam',
-        satuan:'polybag', hargaBeli:0, hargaJual:8000,
-        stok:0, tipe:'jadi' },
-      { id:uid(), kode:'NS-102', nama:'Bibit Cabai Rawit Siap Tanam',
-        satuan:'polybag', hargaBeli:0, hargaJual:7500,
-        stok:0, tipe:'jadi' },
-      { id:uid(), kode:'NS-103', nama:'Bibit Stroberi Siap Tanam',
-        satuan:'polybag', hargaBeli:0, hargaJual:12000,
-        stok:0, tipe:'jadi' },
-
-      // ═══ CABANG SAYUR ═══
-      { id:uid(), kode:'SY-001', nama:'Kemasan Curah 250gr',
-        satuan:'pcs', hargaBeli:1200, hargaJual:0,
-        stok:2000, tipe:'bahan' },
-      { id:uid(), kode:'SY-002', nama:'Kemasan Curah 500gr',
-        satuan:'pcs', hargaBeli:1800, hargaJual:0,
-        stok:1500, tipe:'bahan' },
-      { id:uid(), kode:'SY-003', nama:'Pestisida Nabati',
-        satuan:'liter', hargaBeli:95000, hargaJual:0,
-        stok:18, tipe:'bahan' },
-      { id:uid(), kode:'SY-101', nama:'Tomat Segar',
-        satuan:'kg', hargaBeli:0, hargaJual:22000,
-        stok:0, tipe:'jadi' },
-      { id:uid(), kode:'SY-102', nama:'Cabai Rawit Merah',
-        satuan:'kg', hargaBeli:0, hargaJual:55000,
-        stok:0, tipe:'jadi' },
-      { id:uid(), kode:'SY-103', nama:'Terong Ungu',
-        satuan:'kg', hargaBeli:0, hargaJual:18000,
-        stok:0, tipe:'jadi' },
-      { id:uid(), kode:'SY-104', nama:'Buncis Segar',
-        satuan:'kg', hargaBeli:0, hargaJual:25000,
-        stok:0, tipe:'jadi' },
+      /* ═══ LINI PAKAN AYAM (PK) ═══ */
+      { id:uid(), lini:'PK', kode:'PK-B01', nama:'Jagung Giling',
+        satuan:'kg',      hargaBeli:6500,  hargaJual:0,      stok:800, tipe:'bahan' },
+      { id:uid(), lini:'PK', kode:'PK-B02', nama:'Bungkil Kedelai',
+        satuan:'kg',      hargaBeli:9500,  hargaJual:0,      stok:400, tipe:'bahan' },
+      { id:uid(), lini:'PK', kode:'PK-B03', nama:'Dedak Halus',
+        satuan:'kg',      hargaBeli:3500,  hargaJual:0,      stok:600, tipe:'bahan' },
+      { id:uid(), lini:'PK', kode:'PK-B04', nama:'Premix Vitamin',
+        satuan:'kg',      hargaBeli:45000, hargaJual:0,      stok:50,  tipe:'bahan' },
+      { id:uid(), lini:'PK', kode:'PK-B05', nama:'Karung Pakan 50kg',
+        satuan:'pcs',     hargaBeli:4000,  hargaJual:0,      stok:300, tipe:'bahan' },
+      { id:uid(), lini:'PK', kode:'PK-J01', nama:'Pakan Starter (BR-1) 50kg',
+        satuan:'karung',  hargaBeli:0,     hargaJual:385000, stok:0,   tipe:'jadi' },
+      { id:uid(), lini:'PK', kode:'PK-J02', nama:'Pakan Grower (BR-2) 50kg',
+        satuan:'karung',  hargaBeli:0,     hargaJual:360000, stok:0,   tipe:'jadi' },
+      { id:uid(), lini:'PK', kode:'PK-J03', nama:'Pakan Finisher (BR-3) 50kg',
+        satuan:'karung',  hargaBeli:0,     hargaJual:345000, stok:0,   tipe:'jadi' },
+      { id:uid(), lini:'PK', kode:'PK-J04', nama:'Konsentrat Layer 50kg',
+        satuan:'karung',  hargaBeli:0,     hargaJual:410000, stok:0,   tipe:'jadi' },
     ],
     pembelian: [], penjualan: [],
     pembayaran: [], penerimaan: [],
@@ -182,13 +152,14 @@ function persist(){
 /* ═══════════════════════════════════════════════════════════════
    BUSINESS LOGIC
    ═══════════════════════════════════════════════════════════════ */
-const brg = id => S.barang.find(b => b.id === id);
-const totBuy  = p => sum(p.items, i => i.qty * i.harga);
-const totSell = p => sum(p.items, i => i.qty * i.harga);
-const hppSell = p => sum(p.items, i => i.qty * (i.hpp || 0));
+const brg      = id => S.barang.find(b => b.id === id);
+const brgKode  = k  => S.barang.find(b => b.kode === k);
+const totBuy   = p => sum(p.items, i => i.qty * i.harga);
+const totSell  = p => sum(p.items, i => i.qty * i.harga);
+const hppSell  = p => sum(p.items, i => i.qty * (i.hpp || 0));
 const nilaiStok = () => sum(S.barang, b => b.stok * (b.hargaBeli || 0));
-const piutang = () => sum(S.penjualan.filter(p => p.status !== 'lunas'), totSell);
-const hutang  = () => sum(S.pembelian.filter(p => p.status !== 'lunas'), totBuy);
+const piutang  = () => sum(S.penjualan.filter(p => p.status !== 'lunas'), totSell);
+const hutang   = () => sum(S.pembelian.filter(p => p.status !== 'lunas'), totBuy);
 
 function labaRugi(){
   const pend  = sum(S.penjualan, totSell);
@@ -202,6 +173,33 @@ function neraca(){
   const aset = S.kas + S.kasKecil.saldo + piutang() + nilaiStok();
   const liab = hutang();
   return { aset, liab, ekuitas: aset - liab };
+}
+
+/* ─── Ringkasan performa per lini ─── */
+function statsLini(){
+  const r = {};
+  Object.keys(LINI).forEach(k =>
+    r[k] = { pend:0, hpp:0, margin:0, beli:0, jual:0, stok:0, kritis:0 });
+
+  S.penjualan.forEach(p => p.items.forEach(it => {
+    const b = brg(it.barangId); if (!b) return;
+    const l = r[b.lini]; if (!l) return;
+    l.pend += it.qty * it.harga;
+    l.hpp  += it.qty * (it.hpp || 0);
+    l.jual += it.qty;
+  }));
+  S.pembelian.forEach(p => p.items.forEach(it => {
+    const b = brg(it.barangId); if (!b) return;
+    const l = r[b.lini]; if (!l) return;
+    l.beli += it.qty * it.harga;
+  }));
+  S.barang.forEach(b => {
+    const l = r[b.lini]; if (!l) return;
+    l.stok += b.stok * (b.hargaBeli || 0);
+    if (b.stok <= 5) l.kritis++;
+  });
+  Object.keys(r).forEach(k => r[k].margin = r[k].pend - r[k].hpp);
+  return r;
 }
 
 function jurnal(){
@@ -237,7 +235,7 @@ function stokKeluar(id, qty){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SYNC — kirim antrean ke Apps Script
+   SYNC
    ═══════════════════════════════════════════════════════════════ */
 let busy = false;
 
@@ -301,7 +299,7 @@ function updateStatus(){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   BOOTSTRAP SYNC — Push / Pull data saat pertama connect
+   BOOTSTRAP SYNC
    ═══════════════════════════════════════════════════════════════ */
 async function bootstrapSync(){
   if (!hasUrl() || getUrl() === 'DEMO') return;
@@ -309,18 +307,14 @@ async function bootstrapSync(){
     toast('Offline — data akan disync otomatis saat online');
     return;
   }
-
   toast('Memuat dari Google Sheet…');
-
   try {
-    // 1) PULL dari Sheet — pakai .text() + JSON.parse manual (CORS-safe)
     const pullUrl = getUrl() + '?action=pull&key=' + encodeURIComponent(API_KEY);
     const res = await fetch(pullUrl);
     const txt = await res.text();
     let json;
-    try {
-      json = JSON.parse(txt);
-    } catch(e){
+    try { json = JSON.parse(txt); }
+    catch(e){
       console.warn('Response bukan JSON:', txt.slice(0, 300));
       throw new Error('Sheet response tidak valid');
     }
@@ -335,16 +329,14 @@ async function bootstrapSync(){
         (d.penerimaan && d.penerimaan.length);
 
       if (sheetAdaIsi){
-        if (d.barang && d.barang.length)       S.barang     = d.barang;
-        if (d.pembelian)                        S.pembelian  = d.pembelian;
-        if (d.penjualan)                        S.penjualan  = d.penjualan;
-        if (d.pembayaran)                       S.pembayaran = d.pembayaran;
-        if (d.penerimaan)                       S.penerimaan = d.penerimaan;
-        if (d.permintaan)                       S.permintaan = d.permintaan;
-        if (d.pesanan)                          S.pesanan    = d.pesanan;
-        if (d.kk && d.kk.length){
-          S.kasKecil.mutasi = d.kk;
-        }
+        if (d.barang && d.barang.length)  S.barang     = d.barang;
+        if (d.pembelian)                   S.pembelian  = d.pembelian;
+        if (d.penjualan)                   S.penjualan  = d.penjualan;
+        if (d.pembayaran)                  S.pembayaran = d.pembayaran;
+        if (d.penerimaan)                  S.penerimaan = d.penerimaan;
+        if (d.permintaan)                  S.permintaan = d.permintaan;
+        if (d.pesanan)                     S.pesanan    = d.pesanan;
+        if (d.kk && d.kk.length)           S.kasKecil.mutasi = d.kk;
         persist();
         refreshAll();
         localStorage[K_BOOT] = '1';
@@ -353,13 +345,9 @@ async function bootstrapSync(){
         return;
       }
     }
-
-    // 2) Sheet kosong → PUSH semua data lokal
     pushAllToSheet();
-
   } catch(e){
     console.warn('Bootstrap pull gagal:', e);
-    // Kalau pull gagal, tetap push lokal
     pushAllToSheet();
   }
 }
@@ -371,7 +359,6 @@ function pushAllToSheet(){
     queue({ type, action: 'upsert', record });
     count++;
   };
-
   S.barang.forEach(b => push('barang', b));
   S.pembelian.forEach(p => push('pembelian', p));
   S.penjualan.forEach(p => push('penjualan', p));
@@ -380,14 +367,9 @@ function pushAllToSheet(){
   (S.permintaan || []).forEach(p => push('permintaan', p));
   (S.pesanan || []).forEach(p => push('pesanan', p));
   S.kasKecil.mutasi.forEach(m => push('kk', m));
-
   localStorage[K_BOOT] = '1';
-
-  if (count > 0){
-    toast('⬆ Mengirim ' + count + ' data ke Sheet…');
-  } else {
-    toast('Tidak ada data untuk dikirim');
-  }
+  if (count > 0) toast('⬆ Mengirim ' + count + ' data ke Sheet…');
+  else toast('Tidak ada data untuk dikirim');
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -415,10 +397,7 @@ function renderNav(){
 }
 
 function openModule(id){
-  if (!hasUrl()){
-    renderWelcome();
-    return;
-  }
+  if (!hasUrl()){ renderWelcome(); return; }
   view = id;
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + id));
   $$('nav button').forEach(b => b.classList.toggle('on', b.dataset.t === id));
@@ -459,18 +438,17 @@ function refreshAll(){
 function renderWelcome(){
   const w = document.getElementById('welcome');
   if (!w) return;
-
   const m = document.getElementById('m');
   const nav = document.getElementById('nav');
   if (m) m.style.display = 'none';
   if (nav) nav.style.display = 'none';
-
   w.style.display = 'block';
   w.innerHTML = `<div class="card welcome">
     <div class="ico">🌱</div>
     <h2>Selamat Datang di IMB</h2>
-    <p>Integrated Multi Business — sistem manajemen<br>
-    pembelian, penjualan &amp; stok untuk 5 cabang usaha.</p>
+    <p>PT. Insan Muda Berdikari<br>
+    Sistem manajemen terpadu untuk 4 lini usaha:<br>
+    🍓 Stroberi · 🥛 Dairy · 🐔 Ayam · 🌾 Pakan Ayam</p>
     <button class="btn-big" onclick="connect()">Mulai</button>
     <div class="feats">
       <b>✓ Tanpa daftar</b> — langsung pakai<br>
@@ -494,7 +472,6 @@ function connect(){
   localStorage[K_URL] = DEFAULT_URL;
   toast('Menyambungkan…');
   boot();
-  // Setelah boot, langsung pull/push data dari/ke Sheet
   setTimeout(() => bootstrapSync(), 600);
 }
 
@@ -549,15 +526,19 @@ document.addEventListener('DOMContentLoaded', () => {
 /* ═══════════════════════════════════════════════════════════════
    ITEM ROW
    ═══════════════════════════════════════════════════════════════ */
-function optBarang(filter){
+function optBarang(filter, selectedKode){
   return S.barang
-    .filter(b => !filter || b.tipe === filter)
-    .map(b => `<option value="${b.id}">${esc(b.kode)} · ${esc(b.nama)}</option>`)
+    .filter(b => {
+      if (!filter) return true;
+      if (Array.isArray(filter)) return filter.includes(b.lini);
+      return b.tipe === filter;
+    })
+    .map(b => `<option value="${b.id}" ${b.kode === selectedKode ? 'selected' : ''}>${esc(b.kode)} · ${esc(b.nama)}</option>`)
     .join('');
 }
-function itemRow(prefix, filter){
+function itemRow(prefix, filter, selectedKode){
   return `<div class="irow">
-    <select class="${prefix}-brg">${optBarang(filter)}</select>
+    <select class="${prefix}-brg">${optBarang(filter, selectedKode)}</select>
     <input class="${prefix}-qty" type="number" min="1" value="1">
     <input class="${prefix}-hrg" type="number" min="0" value="0">
     <button class="x2" onclick="this.parentNode.remove()">✕</button>
@@ -598,11 +579,7 @@ async function checkUpdate(silent){
     const r = await fetch('./version.json?t=' + Date.now(), { cache: 'no-store' });
     const j = await r.json();
     const seen = localStorage.app_v;
-
-    if (!seen){
-      localStorage.app_v = String(j.v);
-      return 'first';
-    }
+    if (!seen){ localStorage.app_v = String(j.v); return 'first'; }
     if (String(j.v) !== String(seen)){
       console.log('Versi baru:', j.v, '(lama:', seen, ')');
       localStorage.app_v = String(j.v);
@@ -634,19 +611,8 @@ async function hardReset(){
 async function manualUpdate(){
   toast('Memeriksa update…');
   const r = await checkUpdate(true);
-
-  if (r === 'error'){
-    toast('Gagal cek update, periksa koneksi', 'error');
-    return;
-  }
-  if (r === 'first'){
-    toast('✓ Sudah versi terbaru');
-    return;
-  }
-  if (r === 'latest'){
-    toast('✓ Sudah versi terbaru');
-    return;
-  }
+  if (r === 'error'){ toast('Gagal cek update, periksa koneksi', 'error'); return; }
+  if (r === 'first' || r === 'latest'){ toast('✓ Sudah versi terbaru'); return; }
   toast('🔄 Versi baru ' + r + ' · memuat ulang…');
   setTimeout(hardReset, 800);
 }
@@ -695,19 +661,15 @@ if (/iphone|ipad|ipod/i.test(navigator.userAgent) &&
    EVENT LISTENERS
    ═══════════════════════════════════════════════════════════════ */
 window.addEventListener('online', () => {
-  updateStatus();
-  toast('Kembali online');
-  flush();
+  updateStatus(); toast('Kembali online'); flush();
 });
 window.addEventListener('offline', () => {
-  updateStatus();
-  toast('Mode offline', 'error');
+  updateStatus(); toast('Mode offline', 'error');
 });
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden){ flush(); checkUpdate(true); }
 });
 
-/* URL parameter ?api=... */
 const _api = new URLSearchParams(location.search).get('api');
 if (_api){
   localStorage[K_URL] = _api;
@@ -721,10 +683,7 @@ if (new URLSearchParams(location.search).get('fresh')){
    BOOT
    ═══════════════════════════════════════════════════════════════ */
 function boot(){
-  if (!hasUrl()){
-    renderWelcome();
-    return;
-  }
+  if (!hasUrl()){ renderWelcome(); return; }
   hideWelcome();
   renderNav();
   updateStatus();

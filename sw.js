@@ -1,50 +1,16 @@
-/* ═══════════════════════════════════════════════════════════════
-   IMB Service Worker — offline-first
-   ═══════════════════════════════════════════════════════════════ */
-const CACHE = 'imb-v5';
+const CACHE = 'imb-v6';
 const SHELL = [
-  './',
-  './index.html',
-  './style.css',
-  './core.js',
-  './entities.js',
-  './auth.js',
-  './import.js',
-  './app.js',
-  './mod-dashboard.js',
-  './mod-barang.js',
-  './mod-supplier.js',
-  './mod-pelanggan.js',
-  './mod-pembelian.js',
-  './mod-penjualan.js',
-  './mod-pembayaran.js',
-  './mod-penerimaan.js',
-  './mod-kaskecil.js',
-  './mod-permintaan.js',
-  './mod-pesanan.js',
-  './mod-stok.js',
+  './', './index.html', './style.css',
+  './core.js', './entities.js', './auth.js', './import.js', './app.js',
+  './mod-dashboard.js', './mod-barang.js', './mod-supplier.js',
+  './mod-pelanggan.js', './mod-pembelian.js', './mod-penjualan.js',
+  './mod-pembayaran.js', './mod-penerimaan.js', './mod-kaskecil.js',
   './mod-jurnal.js',
-   './mod-transfer.js',
-'./mod-aging.js',
-'./transfer.html',
-'./aging.html',
-  './home.html',
-  './dashboard.html',
-  './barang.html',
-  './supplier.html',
-  './pelanggan.html',
-  './pembelian.html',
-  './penjualan.html',
-  './pembayaran.html',
-  './penerimaan.html',
-  './kaskecil.html',
-  './permintaan.html',
-  './pesanan.html',
-  './stok.html',
-  './jurnal.html',
-  './manifest.json',
-  './icon.svg',
-  './version.json',
+  './home.html', './dashboard.html', './barang.html',
+  './supplier.html', './pelanggan.html', './pembelian.html',
+  './penjualan.html', './pembayaran.html', './penerimaan.html',
+  './kaskecil.html', './jurnal.html',
+  './manifest.json', './icon.svg', './version.json',
 ];
 
 self.addEventListener('install', e => {
@@ -69,17 +35,14 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   const url = new URL(req.url);
-
   if (req.method !== 'GET') return;
   if (url.origin !== location.origin) return;
 
   if (url.pathname.endsWith('/version.json')){
     e.respondWith(
-      fetch(req, { cache: 'no-store' })
-        .then(res => res)
+      fetch(req, { cache: 'no-store' }).then(res => res)
         .catch(() => caches.match(req).then(r => r || new Response(
-          '{"v":0}', { headers: { 'Content-Type': 'application/json' } }
-        )))
+          '{"v":0}', { headers: { 'Content-Type': 'application/json' } })))
     );
     return;
   }
@@ -93,9 +56,7 @@ self.addEventListener('fetch', e => {
         }
         return res;
       })
-      .catch(() =>
-        caches.match(req).then(r => r || caches.match('./index.html'))
-      )
+      .catch(() => caches.match(req).then(r => r || caches.match('./index.html')))
   );
 });
 

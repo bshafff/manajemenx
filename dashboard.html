@@ -1,13 +1,20 @@
 <div id="v-dashboard" class="view">
+  <!-- HERO: Laba Bersih -->
+  <div class="hero-card" id="dash-hero"></div>
+
+  <!-- Quick stats 2×2 -->
   <div class="grid" id="dash-stats"></div>
+
+  <!-- Kas per entitas (owner only) -->
+  <div class="card" id="dash-kas-ent"></div>
+
+  <!-- Performa 4 lini (compact) -->
   <div class="card" id="dash-lini"></div>
-  <div class="card" id="dash-lr"></div>
-  <div class="card" id="dash-neraca"></div>
-  <div class="card">
-    <h3>Kas Kecil</h3>
-    <div class="btn-row" style="margin-bottom:0">
-      <button class="btn btn-p" onclick="isiKK()">⬇ Isi dari Kas Utama</button>
-      <button class="btn btn-s" onclick="pakaiKK()">⬆ Pengeluaran</button>
-    </div>
-  </div>
+
+  <!-- Laporan lengkap (collapsed) -->
+  <details class="card accordion">
+    <summary>📊 Laporan Lengkap (Laba/Rugi & Neraca)</summary>
+    <div id="dash-lr" style="margin-top:12px"></div>
+    <div id="dash-neraca" style="margin-top:12px"></div>
+  </details>
 </div>

@@ -1,82 +1,130 @@
-function renderKasKecil(){
-  const st = document.getElementById('kk-stats');
-  if (st) st.innerHTML = `
-    <div class="stat pur"><div class="l">Saldo Kas Kecil</div>
-      <div class="v">${rp(S.kasKecil.saldo)}</div>
-      <div class="d">Petty cash</div></div>
-    <div class="stat blue"><div class="l">Kas Utama</div>
-      <div class="v">${rp(S.kas)}</div>
-      <div class="d">Sumber pengisian</div></div>`;
+/* ═══════════════════════════════════════════════════════════════
+   KAS KECIL — per entitas
+   ═══════════════════════════════════════════════════════════════ */
 
+function renderKasKecil(){
+  /* Entitas dropdown */
+  const entEl = document.getElementById('kk-ent');
+  if (entEl){
+    const cur = entEl.value || activeEntity();
+    const vis = visibleEntities();
+    entEl.innerHTML = vis.map(k => {
+      const e = entInfo(k);
+      return `<option value="${k}" ${cur===k?'selected':''}>${e.ico} ${e.nama}</option>`;
+    }).join('');
+    if (!entEl.value) entEl.value = vis[0];
+  }
+
+  /* Defaults */
+  const tglEl = document.getElementById('kk-tgl');
+  if (tglEl && !tglEl.value) tglEl.value = today();
+
+  /* Stats — total per entitas */
+  const st = document.getElementById('kk-stats');
+  if (st){
+    const ent = activeEntity();
+    const list = ent === 'ALL' ? Object.keys(ENTITIES) : [ent];
+    st.innerHTML = list.map(k => {
+      const e = entInfo(k);
+      return `<div class="stat pur"><div class="l">${e.ico} ${e.nama}</div>
+        <div class="v">${rp(kkSaldo(k))}</div>
+        <div class="d">Saldo kas kecil</div></div>`;
+    }).join('') +
+    `<div class="stat"><div class="l">Total KK</div>
+      <div class="v">${rp(totalKK())}</div>
+      <div class="d">Semua entitas</div></div>`;
+  }
+
+  /* Update saldo fields */
+  const ent = document.getElementById('kk-ent')?.value || 'HQ';
+  const saldoEl = document.getElementById('kk-saldo');
+  const kasEl = document.getElementById('kk-kasutama');
+  if (saldoEl) saldoEl.value = kkSaldo(ent);
+  if (kasEl) kasEl.value = kasOf(ent);
+
+  /* Mutasi */
   const el = document.getElementById('kk-mutasi');
   if (!el) return;
-  const m = S.kasKecil.mutasi;
+  const obj = kkOf(ent);
+  const m = obj.mutasi || [];
+  const cnt = document.getElementById('kk-count');
+  if (cnt) cnt.textContent = m.length;
+
   if (!m.length){
     el.innerHTML = `<div class="empty"><span class="e">👛</span>Belum ada mutasi</div>`;
     return;
   }
-  el.innerHTML = `<div style="overflow-x:auto;margin:0 -14px;padding:0 14px">
+  el.innerHTML = `<div class="table-wrap">
     <table>
-      <thead><tr><th>Tgl</th><th>Ket</th>
-        <th class="num">Masuk</th><th class="num">Keluar</th><th></th></tr></thead>
+      <thead><tr>
+        <th>Tanggal</th><th>Keterangan</th>
+        <th class="num">Masuk</th><th class="num">Keluar</th><th></th>
+      </tr></thead>
       <tbody>${m.map(x => `<tr>
         <td>${dmy(x.tgl)}</td>
-        <td>${esc(x.ket || '-')}</td>
+        <td>${esc(x.ket||'-')}</td>
         <td class="num pos">${x.masuk ? rp(x.masuk) : '-'}</td>
         <td class="num neg">${x.keluar ? rp(x.keluar) : '-'}</td>
-        <td><button class="ibtn" onclick="delMutasiKK('${x.id}')">🗑️</button></td>
+        <td class="tb-actions">
+          <button class="ibtn" onclick="kkDelMutasi('${x.id}')">🗑️</button>
+        </td>
       </tr>`).join('')}</tbody>
-    </table></div>`;
+    </table>
+  </div>`;
 }
 
-function isiKK(){
-  openModal('Isi Kas Kecil', 'Pindahkan dana dari kas utama', `
-    <label>Jumlah</label>
-    <input id="kk-jml" type="number" value="0">
-    <label>Keterangan</label>
-    <input id="kk-ket" value="Pengisian kas kecil">
-    <div class="hint">Kas utama tersedia: <b>${rp(S.kas)}</b></div>
-  `, () => {
-    const j = +document.getElementById('kk-jml').value || 0;
-    if (j <= 0) return toast('Jumlah tidak valid', 'error');
-    if (j > S.kas) return toast('Kas utama tidak cukup', 'error');
-    S.kas -= j; S.kasKecil.saldo += j;
-    const rec = { id: uid(), tgl: today(), ket: document.getElementById('kk-ket').value,
-      masuk: j, keluar: 0 };
-    S.kasKecil.mutasi.unshift(rec);
-    persist();
-    queue({ type: 'kk', action: 'upsert', record: rec });
-    closeModal(); renderKasKecil(); renderDashboard(); toast('Kas kecil terisi');
-  });
-}
+function kkSave(){
+  const ent = document.getElementById('kk-ent').value;
+  const jenis = document.getElementById('kk-jenis').value;
+  const tgl = document.getElementById('kk-tgl').value;
+  const jml = +document.getElementById('kk-jml').value || 0;
+  const ket = document.getElementById('kk-ket').value.trim();
 
-function pakaiKK(){
-  openModal('Pengeluaran Kas Kecil', '', `
-    <label>Jumlah</label>
-    <input id="kk-jml" type="number" value="0">
-    <label>Keterangan</label>
-    <input id="kk-ket" placeholder="Misal: beli ATK">
-    <div class="hint">Saldo: <b>${rp(S.kasKecil.saldo)}</b></div>
-  `, () => {
-    const j = +document.getElementById('kk-jml').value || 0;
-    if (j <= 0) return toast('Jumlah tidak valid', 'error');
-    if (j > S.kasKecil.saldo) return toast('Saldo tidak cukup', 'error');
-    S.kasKecil.saldo -= j;
-    const rec = { id: uid(), tgl: today(), ket: document.getElementById('kk-ket').value,
-      masuk: 0, keluar: j };
-    S.kasKecil.mutasi.unshift(rec);
-    persist();
-    queue({ type: 'kk', action: 'upsert', record: rec });
-    closeModal(); renderKasKecil(); renderDashboard(); toast('Dicatat');
-  });
-}
+  if (jml <= 0) return toast('Jumlah tidak valid', 'error');
 
-function delMutasiKK(id){
-  const m = S.kasKecil.mutasi.find(x => x.id === id);
-  if (!m) return;
-  S.kasKecil.saldo += (m.keluar || 0) - (m.masuk || 0);
-  S.kasKecil.mutasi = S.kasKecil.mutasi.filter(x => x.id !== id);
+  if (jenis === 'masuk'){
+    if (jml > kasOf(ent))
+      return toast(`Kas utama ${ent} cuma ${rp(kasOf(ent))}`, 'error');
+    addKas(ent, -jml);
+    kkOf(ent).saldo += jml;
+  } else {
+    if (jml > kkSaldo(ent))
+      return toast(`Saldo KK cuma ${rp(kkSaldo(ent))}`, 'error');
+    addKas(ent, jml);
+    kkOf(ent).saldo -= jml;
+  }
+
+  const rec = {
+    id: uid(), entity: ent, tgl, ket,
+    masuk: jenis === 'masuk' ? jml : 0,
+    keluar: jenis === 'keluar' ? jml : 0,
+  };
+  kkOf(ent).mutasi.unshift(rec);
   persist();
-  queue({ type: 'kk', action: 'delete', id });
-  renderKasKecil(); renderDashboard(); toast('Dibatalkan');
+  queue({ type:'kk', action:'upsert', record:rec });
+
+  /* Reset */
+  document.getElementById('kk-jml').value = 0;
+  document.getElementById('kk-ket').value = '';
+
+  renderKasKecil();
+  refreshDashboard();
+  toast('✓ Dicatat');
 }
+
+function kkDelMutasi(id){
+  const ent = document.getElementById('kk-ent')?.value || 'HQ';
+  const m = kkOf(ent).mutasi.find(x => x.id === id); if (!m) return;
+  if (!confirm('Batalkan mutasi ini?')) return;
+  kkOf(ent).saldo += (m.keluar || 0) - (m.masuk || 0);
+  addKas(ent, (m.masuk || 0) - (m.keluar || 0));
+  kkOf(ent).mutasi = kkOf(ent).mutasi.filter(x => x.id !== id);
+  persist();
+  queue({ type:'kk', action:'delete', id });
+  renderKasKecil();
+  refreshDashboard();
+  toast('Dibatalkan');
+}
+
+window.kkSave = kkSave;
+window.kkDelMutasi = kkDelMutasi;

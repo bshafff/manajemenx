@@ -1,16 +1,14 @@
 /* ═══════════════════════════════════════════════════════════════
-   PEMBELIAN — form inline multi-item
+   PEMBELIAN — form inline + NSFP + print docs
    ═══════════════════════════════════════════════════════════════ */
 
 function renderPembelian(){
-  /* Default */
   const noEl = document.getElementById('pb-no');
   if (noEl && !noEl.value)
     noEl.value = 'PB-' + String((S.pembelian?.length||0) + 1).padStart(3,'0');
   const tglEl = document.getElementById('pb-tgl');
   if (tglEl && !tglEl.value) tglEl.value = today();
 
-  /* Supplier */
   const supEl = document.getElementById('pb-sup');
   if (supEl){
     const cur = supEl.value;
@@ -20,7 +18,6 @@ function renderPembelian(){
       ).join('');
   }
 
-  /* Entitas */
   const entEl = document.getElementById('pb-ent');
   if (entEl){
     const cur = entEl.value;
@@ -31,17 +28,14 @@ function renderPembelian(){
     }).join('');
   }
 
-  /* Items: pastikan minimal 1 baris */
   const items = document.getElementById('pb-items');
   if (items && !items.children.length) pbAddItem();
 
   pbHitung();
 
-  /* Counter */
   const cnt = document.getElementById('pb-count');
   if (cnt) cnt.textContent = (S.pembelian || []).length;
 
-  /* Tabel */
   const el = document.getElementById('pembelian-list');
   if (!el) return;
   const list = (S.pembelian || []).filter(entityFilter).slice(0, 10);
@@ -54,11 +48,12 @@ function renderPembelian(){
       <thead><tr>
         <th>No</th><th>Tanggal</th><th>Supplier</th>
         <th class="num">DPP</th><th class="num">PPN</th>
-        <th class="num">Total</th><th>Status</th><th></th>
+        <th class="num">Total</th><th>Status</th><th>Aksi</th>
       </tr></thead>
       <tbody>${list.map(p => {
         const dpp = sum(p.items||[], i => i.qty*i.harga);
         const ppn = p.ppnPersen ? Math.round(dpp * p.ppnPersen / 100) : 0;
+        const lunas = p.status === 'lunas';
         return `<tr>
           <td><b>${esc(p.no)}</b></td>
           <td>${dmy(p.tgl)}</td>
@@ -66,10 +61,16 @@ function renderPembelian(){
           <td class="num">${rp(dpp)}</td>
           <td class="num">${p.ppnPersen ? rp(ppn)+' ('+p.ppnPersen+'%)' : '-'}</td>
           <td class="num"><b>${rp(dpp+ppn)}</b></td>
-          <td><span class="tag ${p.status==='lunas'?'t-ok':'t-warn'}">${p.status}</span></td>
+          <td><span class="tag ${lunas?'t-ok':'t-warn'}">${p.status}</span></td>
           <td class="tb-actions">
-            <button class="ibtn" onclick="pbView('${p.id}')">👁</button>
-            <button class="ibtn" onclick="pbDel('${p.id}')">🗑️</button>
+            <button class="ibtn" onclick="pbView('${p.id}')" title="Detail">👁</button>
+            ${lunas
+              ? `<button class="ibtn" onclick="printBuktiBayarPembelian('${p.id}')" title="Bukti Bayar">🖨</button>`
+              : `<button class="ibtn" style="opacity:.4;cursor:not-allowed" title="Bukti bayar (perlu lunas)">🖨</button>`}
+            ${p.ppnPersen && p.nsfp
+              ? `<button class="ibtn" onclick="printFakturPajak('${p.id}','beli')" title="Faktur Pajak">🧾</button>`
+              : `<button class="ibtn" style="opacity:.4;cursor:not-allowed" title="Faktur pajak (perlu NSFP + PPN)">🧾</button>`}
+            <button class="ibtn" onclick="pbDel('${p.id}')" title="Hapus">🗑️</button>
           </td>
         </tr>`;
       }).join('')}</tbody>
@@ -77,7 +78,6 @@ function renderPembelian(){
   </div>`;
 }
 
-/* ─── Item row ─── */
 function pbAddItem(){
   const tb = document.getElementById('pb-items');
   if (!tb) return;
@@ -147,7 +147,6 @@ function pbHitung(){
     </div>`;
 }
 
-/* ─── Save ─── */
 function pbSave(){
   const no = document.getElementById('pb-no').value.trim();
   const tgl = document.getElementById('pb-tgl').value;
@@ -155,6 +154,8 @@ function pbSave(){
   const status = document.getElementById('pb-status').value;
   const ppnPersen = +document.getElementById('pb-ppn').value || 0;
   const entity = document.getElementById('pb-ent').value;
+  const noFakturSup = document.getElementById('pb-nofak').value.trim();
+  const nsfp = document.getElementById('pb-nsfp').value.trim();
   const ket = document.getElementById('pb-ket').value.trim();
   const items = pbReadItems();
 
@@ -170,7 +171,6 @@ function pbSave(){
   if (status === 'lunas' && total > kasOf(entity))
     return toast(`Kas ${entity} cuma ${rp(kasOf(entity))}`, 'error');
 
-  /* Stok masuk */
   items.forEach(it => stokMasuk(it.barangId, it.qty, it.harga));
   if (status === 'lunas') addKas(entity, -total);
 
@@ -179,6 +179,7 @@ function pbSave(){
     supplier: sup ? sup.nama : '',
     supplierId: sup ? sup.id : '',
     status, items, ppnPersen, ket,
+    noFakturSup, nsfp,
     dibayar: status === 'lunas' ? total : 0,
   };
   S.pembelian.unshift(rec);
@@ -192,6 +193,8 @@ function pbSave(){
   document.getElementById('pb-items').innerHTML = '';
   document.getElementById('pb-ket').value = '';
   document.getElementById('pb-ppn').value = 0;
+  document.getElementById('pb-nofak').value = '';
+  document.getElementById('pb-nsfp').value = '';
   pbAddItem(); pbHitung();
 
   renderPembelian();
@@ -208,6 +211,8 @@ function pbView(id){
       <tr><td>Supplier</td><td><b>${esc(p.supplier||'-')}</b></td></tr>
       <tr><td>Status</td><td><span class="tag ${p.status==='lunas'?'t-ok':'t-warn'}">${p.status}</span></td></tr>
       <tr><td>Kantor</td><td>${entInfo(p.entity).ico} ${entInfo(p.entity).nama}</td></tr>
+      ${p.noFakturSup ? `<tr><td>No. Faktur Supplier</td><td>${esc(p.noFakturSup)}</td></tr>` : ''}
+      ${p.nsfp ? `<tr><td>NSFP</td><td><code>${esc(p.nsfp)}</code></td></tr>` : ''}
     </table>
     <table style="font-size:13px;margin-top:10px">
       <thead><tr><th>Barang</th><th class="num">Qty</th>

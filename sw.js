@@ -1,16 +1,20 @@
 /* ═══════════════════════════════════════════════════════════════
-   IMB Service Worker — offline-first dengan auto-update
+   IMB Service Worker — offline-first
    ═══════════════════════════════════════════════════════════════ */
-const CACHE = 'imb-v1';
+const CACHE = 'imb-v2';
 const SHELL = [
   './',
   './index.html',
   './style.css',
- './core.js',
-'./import.js',
-'./app.js',
+  './core.js',
+  './entities.js',
+  './auth.js',
+  './import.js',
+  './app.js',
   './mod-dashboard.js',
   './mod-barang.js',
+  './mod-supplier.js',
+  './mod-pelanggan.js',
   './mod-pembelian.js',
   './mod-penjualan.js',
   './mod-pembayaran.js',
@@ -23,6 +27,8 @@ const SHELL = [
   './home.html',
   './dashboard.html',
   './barang.html',
+  './supplier.html',
+  './pelanggan.html',
   './pembelian.html',
   './penjualan.html',
   './pembayaran.html',
@@ -37,19 +43,15 @@ const SHELL = [
   './version.json',
 ];
 
-/* ─── Install: precache app shell ─── */
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => c.addAll(SHELL).catch(err => {
-        // Jangan gagal install hanya karena 1 file hilang
-        console.warn('Precache partial:', err);
-      }))
+      .then(c => c.addAll(SHELL).catch(err =>
+        console.warn('Precache partial:', err)))
       .then(() => self.skipWaiting())
   );
 });
 
-/* ─── Activate: buang cache lama ─── */
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
@@ -60,16 +62,13 @@ self.addEventListener('activate', e => {
   );
 });
 
-/* ─── Fetch strategy ─── */
 self.addEventListener('fetch', e => {
   const req = e.request;
   const url = new URL(req.url);
 
-  // Lewatkan non-GET & cross-origin (Apps Script, Google Fonts)
   if (req.method !== 'GET') return;
   if (url.origin !== location.origin) return;
 
-  // version.json → network-first, jangan pernah cache hasil sukses
   if (url.pathname.endsWith('/version.json')){
     e.respondWith(
       fetch(req, { cache: 'no-store' })
@@ -81,7 +80,6 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Semua aset same-origin → network-first, fallback cache
   e.respondWith(
     fetch(req)
       .then(res => {
@@ -92,14 +90,11 @@ self.addEventListener('fetch', e => {
         return res;
       })
       .catch(() =>
-        caches.match(req).then(r =>
-          r || caches.match('./index.html')
-        )
+        caches.match(req).then(r => r || caches.match('./index.html'))
       )
   );
 });
 
-/* ─── Terima pesan skipWaiting dari halaman ─── */
 self.addEventListener('message', e => {
   if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });

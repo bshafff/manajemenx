@@ -1,7 +1,76 @@
 <div id="v-barang" class="view">
-  <div class="btn-row">
-    <button class="btn btn-p" onclick="addItem()">＋ Tambah Barang</button>
-    <button class="btn btn-s" onclick="openImportDialog('barang')">📥 Import CSV</button>
+  <div class="card">
+    <div class="card-header-flex">
+      <h3 id="barang-form-title">📦 Tambah Barang</h3>
+      <button class="btn btn-s btn-sm" id="barang-cancel" style="display:none"
+              onclick="cancelEditBarang()">Batal Edit</button>
+    </div>
+    <div class="form-grid">
+      <div>
+        <label>ID Barang</label>
+        <input id="f-kode" placeholder="BRG-001">
+      </div>
+      <div>
+        <label>Nama Barang</label>
+        <input id="f-nama" placeholder="Nama barang">
+      </div>
+      <div>
+        <label>Lini</label>
+        <select id="f-lini">
+          <option value="SB">🍓 Stroberi</option>
+          <option value="DR">🥛 Dairy</option>
+          <option value="AY">🐔 Ayam</option>
+          <option value="PK">🌾 Pakan Ayam</option>
+        </select>
+      </div>
+      <div>
+        <label>UoM / Satuan</label>
+        <input id="f-sat" value="pcs" placeholder="pcs / kg / liter">
+      </div>
+      <div>
+        <label>Kategori</label>
+        <select id="f-tipe">
+          <option value="bahan">Bahan Baku</option>
+          <option value="jadi">Barang Jadi</option>
+        </select>
+      </div>
+      <div>
+        <label>Stok Awal</label>
+        <input id="f-stok" type="number" value="0">
+      </div>
+      <div>
+        <label>Harga Beli / HPP</label>
+        <input id="f-hb" type="number" value="0">
+      </div>
+      <div>
+        <label>Harga Jual</label>
+        <input id="f-hj" type="number" value="0">
+      </div>
+      <div>
+        <label>Min Stok</label>
+        <input id="f-min" type="number" value="0">
+      </div>
+    </div>
+    <div class="form-grid" style="grid-template-columns:1fr">
+      <div>
+        <label>Catatan (opsional)</label>
+        <input id="f-cat" placeholder="Keterangan tambahan">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-p" id="barang-submit" onclick="saveBarang()">
+        ＋ Tambah Barang
+      </button>
+      <button class="btn btn-s" onclick="openImportDialog('barang')">
+        📥 Import CSV
+      </button>
+    </div>
   </div>
-  <div class="card" id="barang-list"></div>
+
+  <div class="card">
+    <div class="card-header-flex">
+      <h3>Daftar Barang <span class="badge-count" id="barang-count">0</span></h3>
+    </div>
+    <div id="barang-list"></div>
+  </div>
 </div>

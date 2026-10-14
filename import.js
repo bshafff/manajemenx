@@ -125,6 +125,85 @@ const IMPORT_TYPES = {
     },
   },
 
+  /* ─────── SUPPLIER ─────── */
+  supplier: {
+    label: 'Supplier',
+    hint: '<b>entitas</b>: HQ / SB / DR / AY / PK · <b>pkp</b>: 1 atau 0',
+    template: () => [
+      ['kode','entitas','nama','alamat','telp','email','top','npwp','pkp'],
+      ['SUP-001','SB','PT Benih Unggul','Jl. Raya Cipanas','08123456789','sales@benih.com','30','01.234.567.8-901.000','1'],
+      ['SUP-002','DR','CV Nutrisi Prima','Bandung','08234567890','','14','','0'],
+      ['SUP-003','AY','PT Pakan Sejahtera','Surabaya','08345678901','','30','02.345.678.9-012.000','1'],
+    ],
+    importer(rows){
+      const errs = []; let count = 0;
+      if (!S.supplier) S.supplier = [];
+      rows.forEach((r, i) => {
+        const line = i + 2;
+        const kode = (r.kode || '').toUpperCase();
+        const nama = r.nama;
+        if (!kode || !nama){ errs.push(`Baris ${line}: kode/nama kosong`); return; }
+        if (S.supplier.find(x => x.kode === kode)){
+          errs.push(`Baris ${line}: kode ${kode} sudah ada`); return;
+        }
+        const ent = (r.entitas || 'HQ').toUpperCase();
+        if (!ENTITIES[ent]){ errs.push(`Baris ${line}: entitas ${ent} tidak valid`); return; }
+        const rec = {
+          id: uid(), kode, entity: ent, nama,
+          alamat: r.alamat || '', telp: r.telp || '',
+          email: r.email || '',
+          top: parseNum(r.top),
+          npwp: r.npwp || '',
+          pkp: String(r.pkp) === '1' || String(r.pkp).toLowerCase() === 'true',
+        };
+        S.supplier.push(rec);
+        queue({ type:'supplier', action:'upsert', record:rec });
+        count++;
+      });
+      return { count, errs };
+    },
+  },
+
+  /* ─────── PELANGGAN ─────── */
+  pelanggan: {
+    label: 'Pelanggan',
+    hint: '<b>channel</b>: mitra / toko / online / farm',
+    template: () => [
+      ['kode','entitas','nama','channel','alamat','telp','email','top','limit','npwp'],
+      ['CUS-001','SB','Toko Buah Segar','mitra','Jakarta','08111111','','30','5000000',''],
+      ['CUS-002','DR','Kafe Sehat','toko','Bandung','08222222','','14','2000000',''],
+      ['CUS-003','AY','Warung Bu Sari','online','','08333333','','0','0',''],
+    ],
+    importer(rows){
+      const errs = []; let count = 0;
+      if (!S.pelanggan) S.pelanggan = [];
+      rows.forEach((r, i) => {
+        const line = i + 2;
+        const kode = (r.kode || '').toUpperCase();
+        const nama = r.nama;
+        if (!kode || !nama){ errs.push(`Baris ${line}: kode/nama kosong`); return; }
+        if (S.pelanggan.find(x => x.kode === kode)){
+          errs.push(`Baris ${line}: kode ${kode} sudah ada`); return;
+        }
+        const ent = (r.entitas || 'HQ').toUpperCase();
+        if (!ENTITIES[ent]){ errs.push(`Baris ${line}: entitas ${ent} tidak valid`); return; }
+        const rec = {
+          id: uid(), kode, entity: ent, nama,
+          channel: (r.channel || 'mitra').toLowerCase(),
+          alamat: r.alamat || '', telp: r.telp || '',
+          email: r.email || '',
+          top: parseNum(r.top),
+          limit: parseNum(r.limit),
+          npwp: r.npwp || '',
+        };
+        S.pelanggan.push(rec);
+        queue({ type:'pelanggan', action:'upsert', record:rec });
+        count++;
+      });
+      return { count, errs };
+    },
+  },
+
   /* ─────── PEMBELIAN (multi-item, grouping by no) ─────── */
   pembelian: {
     label: 'Pembelian',
@@ -133,7 +212,7 @@ const IMPORT_TYPES = {
       ['no','tgl','supplier','status','kode_barang','qty','harga'],
       ['PB-001','2026-01-15','PT Benih Unggul','lunas','SB-B01','100','3500'],
       ['PB-001','2026-01-15','PT Benih Unggul','lunas','SB-B02','50','4000'],
-      ['PB-002','2026-01-15','CV Nutrisi','hutang','DR-B01','200','12000'],
+      ['PB-002','2026-01-15','CV Nutrisi Prima','hutang','DR-B01','200','12000'],
     ],
     importer(rows){
       const errs = []; const map = {};

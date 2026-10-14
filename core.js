@@ -62,7 +62,7 @@ function seed(){
   return {
     /* ─── Entitas (kas per entitas) ─── */
     entities: {
-      HQ: { kas: 120000000 },
+      HQ: { kas: 0 },
       SB: { kas: 0 },
       DR: { kas: 0 },
       AY: { kas: 0 },

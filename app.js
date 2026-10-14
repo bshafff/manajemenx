@@ -12,9 +12,6 @@ const VIEW_FILES = {
   'pembayaran': 'pembayaran.html',
   'penerimaan': 'penerimaan.html',
   'kaskecil':   'kaskecil.html',
-  'permintaan': 'permintaan.html',
-  'pesanan':    'pesanan.html',
-  'stok':       'stok.html',
   'jurnal':     'jurnal.html',
 };
 
@@ -34,8 +31,7 @@ async function loadAllViews(){
     console.error(err);
     container.innerHTML = `<div class="card" style="color:#dc2626">
       <b>Gagal memuat tampilan.</b><br>
-      <small>${err.message}. Pastikan semua file .html ada di folder yang sama
-      dan diakses via web server (bukan file://).</small>
+      <small>${err.message}</small>
     </div>`;
   }
 }

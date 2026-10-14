@@ -5,7 +5,7 @@ const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbyC8yxByi0lmkQlujnR
 const API_KEY = 'ERP_2026';
 
 /* ═══════════════════════════════════════════════════════════════
-   LINI USAHA — PT. Insan Muda Berdikari
+   LINI USAHA
    ═══════════════════════════════════════════════════════════════ */
 const LINI = {
   SB: { nama: 'Stroberi',   ico: '🍓', warna: '#dc2626' },
@@ -43,10 +43,11 @@ function toast(msg, type, ms){
 /* ═══════════════════════════════════════════════════════════════
    STORAGE
    ═══════════════════════════════════════════════════════════════ */
-const K_URL   = 'erp_url';
-const K_DATA  = 'erp_data_v4';     // ← bumped (struktur baru)
-const K_QUEUE = 'erp_queue_v2';
-const K_BOOT  = 'erp_bootstrapped';
+const K_URL     = 'erp_url';
+const K_DATA    = 'erp_data_v5';     // ← bumped untuk skema baru
+const K_QUEUE   = 'erp_queue_v2';
+const K_BOOT    = 'erp_bootstrapped';
+const K_SESSION = 'erp_session';
 
 const getUrl    = () => localStorage[K_URL] || '';
 const hasUrl    = () => !!localStorage[K_URL];
@@ -55,16 +56,52 @@ const getQueue  = () => { try { return JSON.parse(localStorage[K_QUEUE] || '[]')
 const setQueue  = q => { localStorage[K_QUEUE] = JSON.stringify(q); updateStatus(); };
 
 /* ═══════════════════════════════════════════════════════════════
-   STATE — 4 lini: Stroberi · Dairy · Ayam · Pakan Ayam
+   STATE — 5 entitas · 4 lini
    ═══════════════════════════════════════════════════════════════ */
 function seed(){
   return {
-    kas: 0,
-    kasKecil: { saldo: 0, mutasi: [] },
-    barang: [],
-    pembelian: [], penjualan: [],
-    pembayaran: [], penerimaan: [],
-    permintaan: [], pesanan: [],
+    /* ─── Entitas (kas per entitas) ─── */
+    entities: {
+      HQ: { kas: 120000000 },
+      SB: { kas: 0 },
+      DR: { kas: 0 },
+      AY: { kas: 0 },
+      PK: { kas: 0 },
+    },
+
+    /* ─── Kas kecil per entitas ─── */
+    kasKecil: {
+      perEntity: {
+        HQ: { saldo: 0, mutasi: [] },
+        SB: { saldo: 0, mutasi: [] },
+        DR: { saldo: 0, mutasi: [] },
+        AY: { saldo: 0, mutasi: [] },
+        PK: { saldo: 0, mutasi: [] },
+      }
+    },
+
+    /* ─── Master ─── */
+    barang:    [],
+    supplier:  [],
+    pelanggan: [],
+
+    /* ─── Transaksi ─── */
+    pembelian:  [],
+    penjualan:  [],
+    pembayaran: [],
+    penerimaan: [],
+    permintaan: [],
+    pesanan:    [],
+    jurnalUmum: [],
+
+    /* ─── Users ─── */
+    users: [
+      { id:'u-owner',  nama:'Owner',      role:'owner',   entity:'HQ', pin:'1234' },
+      { id:'u-man-sb', nama:'Manajer SB', role:'manajer', entity:'SB', pin:'1111' },
+      { id:'u-man-dr', nama:'Manajer DR', role:'manajer', entity:'DR', pin:'2222' },
+      { id:'u-man-ay', nama:'Manajer AY', role:'manajer', entity:'AY', pin:'3333' },
+      { id:'u-man-pk', nama:'Manajer PK', role:'manajer', entity:'PK', pin:'4444' },
+    ],
   };
 }
 
@@ -92,18 +129,22 @@ const hutang   = () => sum(S.pembelian.filter(p => p.status !== 'lunas'), totBuy
 function labaRugi(){
   const pend  = sum(S.penjualan, totSell);
   const hpp   = sum(S.penjualan, hppSell);
-  const beban = sum(S.kasKecil.mutasi.filter(m => m.keluar), m => m.keluar);
+  const beban = sum(
+    Object.values(S.kasKecil.perEntity || {})
+      .flatMap(x => x.mutasi || [])
+      .filter(m => m.keluar),
+    m => m.keluar
+  );
   const kotor = pend - hpp;
   return { pend, hpp, kotor, beban, bersih: kotor - beban };
 }
 
 function neraca(){
-  const aset = S.kas + S.kasKecil.saldo + piutang() + nilaiStok();
+  const aset = totalKas() + totalKK() + piutang() + nilaiStok();
   const liab = hutang();
   return { aset, liab, ekuitas: aset - liab };
 }
 
-/* ─── Ringkasan performa per lini ─── */
 function statsLini(){
   const r = {};
   Object.keys(LINI).forEach(k =>
@@ -140,11 +181,13 @@ function jurnal(){
     J.push({ tgl:p.tgl, ref:p.no, ket:'HPP terjual',
       d:'HPP', k:'Persediaan', j:hppSell(p) });
   });
-  S.kasKecil.mutasi.forEach(m => {
-    if (m.masuk) J.push({ tgl:m.tgl, ref:'KK',
-      ket:'Isi kas kecil', d:'Kas Kecil', k:'Kas', j:m.masuk });
-    if (m.keluar) J.push({ tgl:m.tgl, ref:'KK',
-      ket:'Kas kecil keluar', d:'Beban', k:'Kas Kecil', j:m.keluar });
+  Object.entries(S.kasKecil.perEntity || {}).forEach(([ent, obj]) => {
+    (obj.mutasi || []).forEach(m => {
+      if (m.masuk) J.push({ tgl:m.tgl, ref:'KK-' + ent,
+        ket:'Isi kas kecil', d:'Kas Kecil', k:'Kas', j:m.masuk });
+      if (m.keluar) J.push({ tgl:m.tgl, ref:'KK-' + ent,
+        ket:'Kas kecil keluar', d:'Beban', k:'Kas Kecil', j:m.keluar });
+    });
   });
   return J.sort((a,b) => (b.tgl||'').localeCompare(a.tgl||''));
 }
@@ -249,27 +292,39 @@ async function bootstrapSync(){
 
     if (json && json.ok && json.data){
       const d = json.data;
-      const sheetAdaIsi =
+      const adaIsi =
         (d.barang && d.barang.length) ||
+        (d.supplier && d.supplier.length) ||
+        (d.pelanggan && d.pelanggan.length) ||
         (d.pembelian && d.pembelian.length) ||
-        (d.penjualan && d.penjualan.length) ||
-        (d.pembayaran && d.pembayaran.length) ||
-        (d.penerimaan && d.penerimaan.length);
+        (d.penjualan && d.penjualan.length);
 
-      if (sheetAdaIsi){
-        if (d.barang && d.barang.length)  S.barang     = d.barang;
-        if (d.pembelian)                   S.pembelian  = d.pembelian;
-        if (d.penjualan)                   S.penjualan  = d.penjualan;
-        if (d.pembayaran)                  S.pembayaran = d.pembayaran;
-        if (d.penerimaan)                  S.penerimaan = d.penerimaan;
-        if (d.permintaan)                  S.permintaan = d.permintaan;
-        if (d.pesanan)                     S.pesanan    = d.pesanan;
-        if (d.kk && d.kk.length)           S.kasKecil.mutasi = d.kk;
+      if (adaIsi){
+        if (d.barang && d.barang.length)    S.barang     = d.barang;
+        if (d.supplier)                      S.supplier   = d.supplier;
+        if (d.pelanggan)                     S.pelanggan  = d.pelanggan;
+        if (d.pembelian)                     S.pembelian  = d.pembelian;
+        if (d.penjualan)                     S.penjualan  = d.penjualan;
+        if (d.pembayaran)                    S.pembayaran = d.pembayaran;
+        if (d.penerimaan)                    S.penerimaan = d.penerimaan;
+        if (d.permintaan)                    S.permintaan = d.permintaan;
+        if (d.pesanan)                       S.pesanan    = d.pesanan;
+        if (d.users && d.users.length)       S.users      = d.users;
+        if (d.kk && d.kk.length){
+          // d.kk = array mutasi → kelompokkan per entity
+          const per = {};
+          d.kk.forEach(m => {
+            const e = m.entity || 'HQ';
+            if (!per[e]) per[e] = { saldo:0, mutasi:[] };
+            per[e].mutasi.push(m);
+            per[e].saldo += (m.masuk || 0) - (m.keluar || 0);
+          });
+          S.kasKecil.perEntity = per;
+        }
         persist();
         refreshAll();
         localStorage[K_BOOT] = '1';
-        toast('✓ Data dimuat dari Sheet (' +
-              (d.barang ? d.barang.length : 0) + ' barang)');
+        toast('✓ Data dimuat dari Sheet');
         return;
       }
     }
@@ -288,16 +343,19 @@ function pushAllToSheet(){
     count++;
   };
   S.barang.forEach(b => push('barang', b));
+  (S.supplier || []).forEach(s => push('supplier', s));
+  (S.pelanggan || []).forEach(p => push('pelanggan', p));
   S.pembelian.forEach(p => push('pembelian', p));
   S.penjualan.forEach(p => push('penjualan', p));
   (S.pembayaran || []).forEach(p => push('pembayaran', p));
   (S.penerimaan || []).forEach(p => push('penerimaan', p));
   (S.permintaan || []).forEach(p => push('permintaan', p));
   (S.pesanan || []).forEach(p => push('pesanan', p));
-  S.kasKecil.mutasi.forEach(m => push('kk', m));
+  Object.values(S.kasKecil.perEntity || {}).forEach(obj =>
+    (obj.mutasi || []).forEach(m => push('kk', m))
+  );
   localStorage[K_BOOT] = '1';
   if (count > 0) toast('⬆ Mengirim ' + count + ' data ke Sheet…');
-  else toast('Tidak ada data untuk dikirim');
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -326,6 +384,11 @@ function renderNav(){
 
 function openModule(id){
   if (!hasUrl()){ renderWelcome(); return; }
+  if (!isLoggedIn()){ renderLogin(); return; }
+  if (!canAccess(id)){
+    toast('Akses ditolak', 'error');
+    return;
+  }
   view = id;
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + id));
   $$('nav button').forEach(b => b.classList.toggle('on', b.dataset.t === id));
@@ -338,6 +401,8 @@ function refreshView(id){
     home:      () => typeof renderHome === 'function' && renderHome(),
     dashboard: () => typeof renderDashboard === 'function' && renderDashboard(),
     barang:    () => typeof renderBarang === 'function' && renderBarang(),
+    supplier:  () => typeof renderSupplier === 'function' && renderSupplier(),
+    pelanggan: () => typeof renderPelanggan === 'function' && renderPelanggan(),
     pembelian: () => typeof renderPembelian === 'function' && renderPembelian(),
     penjualan: () => typeof renderPenjualan === 'function' && renderPenjualan(),
     pembayaran:() => typeof renderPembayaran === 'function' && renderPembayaran(),
@@ -353,11 +418,26 @@ function refreshView(id){
 
 function refreshAll(){
   Object.keys({
-    home:1, dashboard:1, barang:1, pembelian:1, penjualan:1,
-    pembayaran:1, penerimaan:1, kaskecil:1, permintaan:1, pesanan:1,
-    stok:1, jurnal:1,
+    home:1, dashboard:1, barang:1, supplier:1, pelanggan:1,
+    pembelian:1, penjualan:1, pembayaran:1, penerimaan:1,
+    kaskecil:1, permintaan:1, pesanan:1, stok:1, jurnal:1,
   }).forEach(refreshView);
   updateStatus();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HOME
+   ═══════════════════════════════════════════════════════════════ */
+function renderHome(){
+  const u = currentUser();
+  if (!u) return;
+  const e = entInfo(u.entity);
+  const ico = document.getElementById('uc-ico');
+  const nm  = document.getElementById('uc-nama');
+  const inf = document.getElementById('uc-info');
+  if (ico) ico.textContent = e.ico;
+  if (nm)  nm.textContent  = u.nama;
+  if (inf) inf.textContent = `${u.role.toUpperCase()} · ${e.nama}`;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -509,14 +589,12 @@ async function checkUpdate(silent){
     const seen = localStorage.app_v;
     if (!seen){ localStorage.app_v = String(j.v); return 'first'; }
     if (String(j.v) !== String(seen)){
-      console.log('Versi baru:', j.v, '(lama:', seen, ')');
       localStorage.app_v = String(j.v);
       return String(j.v);
     }
     if (!silent) toast('✓ Sudah versi terbaru');
     return 'latest';
   } catch(e){
-    console.warn('Cek update gagal:', e);
     if (!silent) toast('Gagal cek update', 'error');
     return 'error';
   }
@@ -539,7 +617,7 @@ async function hardReset(){
 async function manualUpdate(){
   toast('Memeriksa update…');
   const r = await checkUpdate(true);
-  if (r === 'error'){ toast('Gagal cek update, periksa koneksi', 'error'); return; }
+  if (r === 'error'){ toast('Gagal cek update', 'error'); return; }
   if (r === 'first' || r === 'latest'){ toast('✓ Sudah versi terbaru'); return; }
   toast('🔄 Versi baru ' + r + ' · memuat ulang…');
   setTimeout(hardReset, 800);
@@ -612,9 +690,18 @@ if (new URLSearchParams(location.search).get('fresh')){
    ═══════════════════════════════════════════════════════════════ */
 function boot(){
   if (!hasUrl()){ renderWelcome(); return; }
+  if (!isLoggedIn()){ renderLogin(); return; }
+
   hideWelcome();
   renderNav();
   updateStatus();
+
+  // Sembunyikan view yang role-nya tidak boleh
+  $$('.view').forEach(v => {
+    const id = v.id.replace('v-', '');
+    if (!canAccess(id)) v.style.display = 'none';
+  });
+
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + view));
   refreshAll();
 }

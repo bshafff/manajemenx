@@ -44,7 +44,7 @@ function toast(msg, type, ms){
    STORAGE
    ═══════════════════════════════════════════════════════════════ */
 const K_URL   = 'erp_url';
-const K_DATA  = 'erp_data_v3';     // ← bumped (struktur baru)
+const K_DATA  = 'erp_data_v4';     // ← bumped (struktur baru)
 const K_QUEUE = 'erp_queue_v2';
 const K_BOOT  = 'erp_bootstrapped';
 
@@ -59,81 +59,9 @@ const setQueue  = q => { localStorage[K_QUEUE] = JSON.stringify(q); updateStatus
    ═══════════════════════════════════════════════════════════════ */
 function seed(){
   return {
-    kas: 120000000,
-    kasKecil: { saldo: 7500000, mutasi: [] },
-    barang: [
-      /* ═══ LINI STROBERI (SB) ═══ */
-      { id:uid(), lini:'SB', kode:'SB-B01', nama:'Bibit Stroberi Sweet Charlie',
-        satuan:'polybag', hargaBeli:3500,  hargaJual:7500,   stok:500, tipe:'bahan' },
-      { id:uid(), lini:'SB', kode:'SB-B02', nama:'Bibit Stroberi Californica',
-        satuan:'polybag', hargaBeli:4000,  hargaJual:8500,   stok:300, tipe:'bahan' },
-      { id:uid(), lini:'SB', kode:'SB-B03', nama:'Net Pot Stroberi',
-        satuan:'pcs',     hargaBeli:1200,  hargaJual:0,      stok:800, tipe:'bahan' },
-      { id:uid(), lini:'SB', kode:'SB-B04', nama:'Media Tanam Stroberi',
-        satuan:'karung',  hargaBeli:28000, hargaJual:0,      stok:60,  tipe:'bahan' },
-      { id:uid(), lini:'SB', kode:'SB-J01', nama:'Stroberi Segar Grade A',
-        satuan:'kg',      hargaBeli:0,     hargaJual:95000,  stok:0,   tipe:'jadi' },
-      { id:uid(), lini:'SB', kode:'SB-J02', nama:'Stroberi Frozen',
-        satuan:'kg',      hargaBeli:0,     hargaJual:65000,  stok:0,   tipe:'jadi' },
-      { id:uid(), lini:'SB', kode:'SB-J03', nama:'Stroberi Curah (Grade B)',
-        satuan:'kg',      hargaBeli:0,     hargaJual:45000,  stok:0,   tipe:'jadi' },
-
-      /* ═══ LINI DAIRY (DR) ═══ */
-      { id:uid(), lini:'DR', kode:'DR-B01', nama:'Susu Segar Mentah',
-        satuan:'liter',   hargaBeli:12000, hargaJual:0,      stok:200, tipe:'bahan' },
-      { id:uid(), lini:'DR', kode:'DR-B02', nama:'Starter Yogurt',
-        satuan:'sachet',  hargaBeli:15000, hargaJual:0,      stok:40,  tipe:'bahan' },
-      { id:uid(), lini:'DR', kode:'DR-B03', nama:'Rennet / Koagulan',
-        satuan:'botol',   hargaBeli:85000, hargaJual:0,      stok:12,  tipe:'bahan' },
-      { id:uid(), lini:'DR', kode:'DR-B04', nama:'Gula Pasir',
-        satuan:'kg',      hargaBeli:14000, hargaJual:0,      stok:150, tipe:'bahan' },
-      { id:uid(), lini:'DR', kode:'DR-B05', nama:'Botol Kaca 250ml',
-        satuan:'pcs',     hargaBeli:3500,  hargaJual:0,      stok:600, tipe:'bahan' },
-      { id:uid(), lini:'DR', kode:'DR-J01', nama:'Susu Segar Pasteurisasi 1L',
-        satuan:'botol',   hargaBeli:0,     hargaJual:28000,  stok:0,   tipe:'jadi' },
-      { id:uid(), lini:'DR', kode:'DR-J02', nama:'Yogurt Plain 250ml',
-        satuan:'botol',   hargaBeli:0,     hargaJual:18000,  stok:0,   tipe:'jadi' },
-      { id:uid(), lini:'DR', kode:'DR-J03', nama:'Yogurt Stroberi 250ml',
-        satuan:'botol',   hargaBeli:0,     hargaJual:22000,  stok:0,   tipe:'jadi' },
-      { id:uid(), lini:'DR', kode:'DR-J04', nama:'Keju Segar (Fresh Cheese)',
-        satuan:'kg',      hargaBeli:0,     hargaJual:145000, stok:0,   tipe:'jadi' },
-
-      /* ═══ LINI AYAM (AY) ═══ */
-      { id:uid(), lini:'AY', kode:'AY-B01', nama:'DOC (Day Old Chick)',
-        satuan:'ekor',    hargaBeli:8500,  hargaJual:0,      stok:500, tipe:'bahan' },
-      { id:uid(), lini:'AY', kode:'AY-B02', nama:'Vitamin & Vaksin Ayam',
-        satuan:'paket',   hargaBeli:125000,hargaJual:0,      stok:20,  tipe:'bahan' },
-      { id:uid(), lini:'AY', kode:'AY-B03', nama:'Sekam / Alas Kandang',
-        satuan:'karung',  hargaBeli:25000, hargaJual:0,      stok:40,  tipe:'bahan' },
-      { id:uid(), lini:'AY', kode:'AY-B04', nama:'Pakan Starter (dari PK)',
-        satuan:'karung',  hargaBeli:385000,hargaJual:0,      stok:60,  tipe:'bahan' },
-      { id:uid(), lini:'AY', kode:'AY-J01', nama:'Ayam Broiler Hidup',
-        satuan:'kg',      hargaBeli:0,     hargaJual:28000,  stok:0,   tipe:'jadi' },
-      { id:uid(), lini:'AY', kode:'AY-J02', nama:'Ayam Potong Karkas',
-        satuan:'kg',      hargaBeli:0,     hargaJual:38000,  stok:0,   tipe:'jadi' },
-      { id:uid(), lini:'AY', kode:'AY-J03', nama:'Telur Ayam Konsumsi',
-        satuan:'kg',      hargaBeli:0,     hargaJual:30000,  stok:0,   tipe:'jadi' },
-
-      /* ═══ LINI PAKAN AYAM (PK) ═══ */
-      { id:uid(), lini:'PK', kode:'PK-B01', nama:'Jagung Giling',
-        satuan:'kg',      hargaBeli:6500,  hargaJual:0,      stok:800, tipe:'bahan' },
-      { id:uid(), lini:'PK', kode:'PK-B02', nama:'Bungkil Kedelai',
-        satuan:'kg',      hargaBeli:9500,  hargaJual:0,      stok:400, tipe:'bahan' },
-      { id:uid(), lini:'PK', kode:'PK-B03', nama:'Dedak Halus',
-        satuan:'kg',      hargaBeli:3500,  hargaJual:0,      stok:600, tipe:'bahan' },
-      { id:uid(), lini:'PK', kode:'PK-B04', nama:'Premix Vitamin',
-        satuan:'kg',      hargaBeli:45000, hargaJual:0,      stok:50,  tipe:'bahan' },
-      { id:uid(), lini:'PK', kode:'PK-B05', nama:'Karung Pakan 50kg',
-        satuan:'pcs',     hargaBeli:4000,  hargaJual:0,      stok:300, tipe:'bahan' },
-      { id:uid(), lini:'PK', kode:'PK-J01', nama:'Pakan Starter (BR-1) 50kg',
-        satuan:'karung',  hargaBeli:0,     hargaJual:385000, stok:0,   tipe:'jadi' },
-      { id:uid(), lini:'PK', kode:'PK-J02', nama:'Pakan Grower (BR-2) 50kg',
-        satuan:'karung',  hargaBeli:0,     hargaJual:360000, stok:0,   tipe:'jadi' },
-      { id:uid(), lini:'PK', kode:'PK-J03', nama:'Pakan Finisher (BR-3) 50kg',
-        satuan:'karung',  hargaBeli:0,     hargaJual:345000, stok:0,   tipe:'jadi' },
-      { id:uid(), lini:'PK', kode:'PK-J04', nama:'Konsentrat Layer 50kg',
-        satuan:'karung',  hargaBeli:0,     hargaJual:410000, stok:0,   tipe:'jadi' },
-    ],
+    kas: 0,
+    kasKecil: { saldo: 0, mutasi: [] },
+    barang: [],
     pembelian: [], penjualan: [],
     pembayaran: [], penerimaan: [],
     permintaan: [], pesanan: [],

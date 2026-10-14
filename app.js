@@ -1,10 +1,12 @@
 /* ═══════════════════════════════════════════════════════════════
-   VIEW LOADER — muat semua file HTML view ke #m
+   VIEW LOADER
    ═══════════════════════════════════════════════════════════════ */
 const VIEW_FILES = {
   'home':       'home.html',
   'dashboard':  'dashboard.html',
   'barang':     'barang.html',
+  'supplier':   'supplier.html',
+  'pelanggan':  'pelanggan.html',
   'pembelian':  'pembelian.html',
   'penjualan':  'penjualan.html',
   'pembayaran': 'pembayaran.html',

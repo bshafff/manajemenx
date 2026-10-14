@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    IMB Service Worker — offline-first
    ═══════════════════════════════════════════════════════════════ */
-const CACHE = 'imb-v2';
+const CACHE = 'imb-v3';
 const SHELL = [
   './',
   './index.html',

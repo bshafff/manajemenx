@@ -1,7 +1,75 @@
 <div id="v-pembelian" class="view">
-  <div class="btn-row">
-    <button class="btn btn-p" onclick="addBuy()">＋ Faktur Pembelian</button>
-    <button class="btn btn-s" onclick="openImportDialog('pembelian')">📥 Import CSV</button>
+  <div class="card">
+    <div class="card-header-flex">
+      <h3>🛒 Faktur Pembelian</h3>
+      <button class="btn btn-s btn-sm" onclick="openImportDialog('pembelian')">📥 Import</button>
+    </div>
+    <div class="form-grid">
+      <div>
+        <label>No. Faktur</label>
+        <input id="pb-no" placeholder="PB-001">
+      </div>
+      <div>
+        <label>Tanggal</label>
+        <input id="pb-tgl" type="date">
+      </div>
+      <div>
+        <label>Supplier</label>
+        <select id="pb-sup">
+          <option value="">— Pilih Supplier —</option>
+        </select>
+      </div>
+      <div>
+        <label>Status</label>
+        <select id="pb-status">
+          <option value="lunas">Lunas (kas berkurang)</option>
+          <option value="hutang">Hutang</option>
+        </select>
+      </div>
+      <div>
+        <label>PPN (%)</label>
+        <input id="pb-ppn" type="number" value="0" min="0" max="100"
+               oninput="pbHitung()">
+      </div>
+      <div>
+        <label>Kantor / Lini</label>
+        <select id="pb-ent"></select>
+      </div>
+    </div>
+
+    <label style="margin-top:14px;display:block">Barang Dibeli</label>
+    <div class="items-scroll">
+      <table class="items-table">
+        <thead><tr>
+          <th>Barang</th>
+          <th class="num">Qty</th>
+          <th class="num">Harga</th>
+          <th class="num">Subtotal</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="pb-items"></tbody>
+      </table>
+    </div>
+    <button class="btn btn-s btn-sm" onclick="pbAddItem()">＋ Tambah Baris</button>
+
+    <div class="total-area" id="pb-total"></div>
+
+    <div class="form-grid" style="grid-template-columns:1fr;margin-top:12px">
+      <div>
+        <label>Catatan</label>
+        <input id="pb-ket" placeholder="Keterangan tambahan (opsional)">
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn btn-p" onclick="pbSave()">💾 Simpan Faktur</button>
+    </div>
   </div>
-  <div class="card" id="pembelian-list"></div>
+
+  <div class="card">
+    <div class="card-header-flex">
+      <h3>Faktur Terakhir <span class="badge-count" id="pb-count">0</span></h3>
+    </div>
+    <div id="pembelian-list"></div>
+  </div>
 </div>

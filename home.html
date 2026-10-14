@@ -1,7 +1,6 @@
 <div id="v-home" class="view active">
 
-  <!-- Info user -->
-  <div class="card" id="user-card" style="display:flex;align-items:center;gap:12px">
+  <div class="card" style="display:flex;align-items:center;gap:12px">
     <div id="uc-ico" style="font-size:32px">👤</div>
     <div style="flex:1">
       <div id="uc-nama" style="font-weight:700"></div>
@@ -10,48 +9,44 @@
     <button class="btn btn-s btn-sm" onclick="logout()">Keluar</button>
   </div>
 
-  <!-- ═══ MENU UTAMA ═══ -->
-  <div class="section-label">Menu Utama</div>
+  <!-- ═══ OVERVIEW ═══ -->
+  <div class="section-label">Overview</div>
 
   <div class="menu-card" onclick="openModule('dashboard')">
     <div class="menu-ico" style="background:#fee2e2">📊</div>
     <div class="menu-text"><b>Dashboard</b>
-      <div class="mute">Laba/rugi, neraca, kas</div></div>
+      <div class="mute">Laba/rugi, neraca, kas per entitas</div></div>
     <span class="menu-arrow">›</span>
   </div>
 
-  <div class="menu-card" onclick="openModule('barang')">
-    <div class="menu-ico" style="background:#f3e8ff">📦</div>
-    <div class="menu-text"><b>Master Barang</b>
-      <div class="mute">Bahan baku & barang jadi</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
+  <!-- ═══ TRANSAKSI ═══ -->
+  <div class="section-label">Transaksi</div>
 
   <div class="menu-card" onclick="openModule('pembelian')">
     <div class="menu-ico" style="background:#dcfce7">🛒</div>
     <div class="menu-text"><b>Faktur Pembelian</b>
-      <div class="mute">Faktur beli & stok masuk</div></div>
+      <div class="mute">Beli dari supplier · stok masuk</div></div>
     <span class="menu-arrow">›</span>
   </div>
 
   <div class="menu-card" onclick="openModule('penjualan')">
     <div class="menu-ico" style="background:#fef3c7">🧾</div>
     <div class="menu-text"><b>Faktur Penjualan</b>
-      <div class="mute">Faktur jual & HPP</div></div>
+      <div class="mute">Jual · surat jalan · kwitansi · faktur pajak</div></div>
     <span class="menu-arrow">›</span>
   </div>
 
   <div class="menu-card" onclick="openModule('penerimaan')">
     <div class="menu-ico" style="background:#dcfce7">💰</div>
-    <div class="menu-text"><b>Penerimaan & Kuitansi</b>
-      <div class="mute">Kas masuk · pelunasan · kuitansi</div></div>
+    <div class="menu-text"><b>Penerimaan Uang</b>
+      <div class="mute">Kas masuk · pelunasan piutang · kuitansi</div></div>
     <span class="menu-arrow">›</span>
   </div>
 
   <div class="menu-card" onclick="openModule('pembayaran')">
     <div class="menu-ico" style="background:#fee2e2">💸</div>
     <div class="menu-text"><b>Pembayaran</b>
-      <div class="mute">Kas keluar & beban</div></div>
+      <div class="mute">Kas keluar · pelunasan hutang · bukti bayar</div></div>
     <span class="menu-arrow">›</span>
   </div>
 
@@ -62,15 +57,25 @@
     <span class="menu-arrow">›</span>
   </div>
 
+  <!-- ═══ LAPORAN ═══ -->
+  <div class="section-label">Laporan</div>
+
   <div class="menu-card" onclick="openModule('jurnal')">
     <div class="menu-ico" style="background:#fef3c7">📚</div>
     <div class="menu-text"><b>Jurnal & Buku Besar</b>
-      <div class="mute">Otomatis dari transaksi</div></div>
+      <div class="mute">Otomatis dari semua transaksi</div></div>
     <span class="menu-arrow">›</span>
   </div>
 
-  <!-- ═══ LAINNYA ═══ -->
-  <div class="section-label">Lainnya</div>
+  <!-- ═══ MASTER DATA ═══ -->
+  <div class="section-label">Master Data</div>
+
+  <div class="menu-card" onclick="openModule('barang')">
+    <div class="menu-ico" style="background:#f3e8ff">📦</div>
+    <div class="menu-text"><b>Barang</b>
+      <div class="mute">Bahan baku & barang jadi</div></div>
+    <span class="menu-arrow">›</span>
+  </div>
 
   <div class="menu-card" onclick="openModule('supplier')">
     <div class="menu-ico" style="background:#e0e7ff">🏭</div>

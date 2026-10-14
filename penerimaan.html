@@ -1,7 +1,93 @@
 <div id="v-penerimaan" class="view">
-  <div class="btn-row">
-    <button class="btn btn-p" onclick="addTerima()">＋ Catat Penerimaan</button>
-    <button class="btn btn-s" onclick="openImportDialog('penerimaan')">📥 Import CSV</button>
+  <div class="grid" id="pn-stats"></div>
+
+  <div class="card">
+    <div class="card-header-flex">
+      <h3>💰 Input Penerimaan Uang</h3>
+    </div>
+    <div class="form-grid">
+      <div>
+        <label>Jenis Penerimaan</label>
+        <select id="pn-jenis" onchange="pnOnJenis()">
+          <option value="pelunasan">Pelunasan Piutang</option>
+          <option value="tunai">Penjualan Tunai</option>
+          <option value="dp">DP / Uang Muka</option>
+          <option value="lain">Lain-lain</option>
+        </select>
+      </div>
+      <div>
+        <label>ID Penerimaan</label>
+        <input id="pn-no" placeholder="RCV-001">
+      </div>
+      <div>
+        <label>Tanggal Terima</label>
+        <input id="pn-tgl" type="date" value="">
+      </div>
+      <div>
+        <label>Diterima Dari</label>
+        <select id="pn-dari" onchange="pnOnDari()">
+          <option value="">— Pilih Pelanggan —</option>
+        </select>
+      </div>
+      <div>
+        <label>Metode Terima</label>
+        <select id="pn-metode">
+          <option value="cash">💵 Tunai</option>
+          <option value="transfer">🏦 Transfer Bank</option>
+          <option value="qris">📱 QRIS</option>
+          <option value="cek">📄 Cek / Giro</option>
+        </select>
+      </div>
+      <div>
+        <label>Tujuan Kas</label>
+        <select id="pn-ent"></select>
+      </div>
+      <div>
+        <label>Total Diterima</label>
+        <input id="pn-jml" type="number" value="0" oninput="pnOnJml()">
+      </div>
+      <div>
+        <label>Sisa Piutang</label>
+        <input id="pn-sisa" readonly value="0" style="background:#f3f4f6">
+      </div>
+      <div>
+        <label>Terbitkan Faktur</label>
+        <select id="pn-terbit">
+          <option value="1">Ya — kuitansi</option>
+          <option value="0">Tidak</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid" style="grid-template-columns:2fr 1fr">
+      <div>
+        <label>Bukti Transfer (URL Foto)</label>
+        <input id="pn-bukti" placeholder="https://... atau upload">
+      </div>
+      <div>
+        <label>Upload Bukti</label>
+        <label class="file-input-wrap" id="pn-file-wrap">
+          📎 Pilih foto / PDF
+          <input type="file" id="pn-file" accept="image/*,application/pdf"
+                 onchange="pnOnFile(this)">
+        </label>
+      </div>
+    </div>
+    <div class="form-grid" style="grid-template-columns:1fr">
+      <div>
+        <label>Catatan</label>
+        <input id="pn-ket" placeholder="Misal: transfer BCA 15 Jan">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-p" onclick="saveTerima()">💾 Simpan Penerimaan</button>
+      <button class="btn btn-s" onclick="openImportDialog('penerimaan')">📥 Import</button>
+    </div>
   </div>
-  <div class="card" id="penerimaan-list"></div>
+
+  <div class="card">
+    <div class="card-header-flex">
+      <h3>20 Terakhir <span class="badge-count" id="terima-count">0</span></h3>
+    </div>
+    <div id="penerimaan-list"></div>
+  </div>
 </div>

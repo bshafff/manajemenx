@@ -24,6 +24,41 @@ function renderDashboard(){
       <div class="v ${kritis?'neg':'pos'}">${kritis}</div>
       <div class="d">≤ 5 unit</div></div>`;
 
+  /* ─── Kartu Performa per Lini ─── */
+  const liniEl = document.getElementById('dash-lini');
+  if (liniEl){
+    const L = statsLini();
+    liniEl.innerHTML = `
+      <h3>Performa 4 Lini Usaha</h3>
+      ${Object.keys(LINI).map(k => {
+        const li = LINI[k], d = L[k];
+        const max = Math.max(1, ...Object.values(L).map(x => x.pend));
+        const pct = d.pend > 0 ? (d.pend / max * 100) : 0;
+        return `<div style="padding:10px 0;border-bottom:1px solid var(--line)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:22px">${li.ico}</span>
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:14px">${li.nama}</div>
+              <div class="hint" style="margin:0">${d.kritis} SKU kritis ·
+                stok ${rp(d.stok)}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-family:Fraunces;font-weight:600;
+                color:${d.margin>=0?'var(--ok)':'var(--red)'}">
+                ${rp(d.margin)}</div>
+              <div class="hint" style="margin:0">Omzet ${rp(d.pend)}</div>
+            </div>
+          </div>
+          <div class="bar" style="margin-top:6px">
+            <i style="width:${pct}%;background:${li.warna}"></i>
+          </div>
+        </div>`;
+      }).join('')}
+      <div class="hint" style="margin-top:8px">
+        Omzet = total penjualan · Margin = omzet − HPP
+      </div>`;
+  }
+
   const lrEl = document.getElementById('dash-lr');
   if (lrEl) lrEl.innerHTML = `
     <h3>Laba / Rugi</h3>
@@ -56,10 +91,4 @@ function renderDashboard(){
       <tr style="background:#2d5016;color:#fff"><td><b>Total</b></td>
         <td class="num"><b>${rp(nc.liab + nc.ekuitas)}</b></td></tr>
     </table>`;
-}
-
-function neraca(){
-  const aset = S.kas + S.kasKecil.saldo + piutang() + nilaiStok();
-  const liab = hutang();
-  return { aset, liab, ekuitas: aset - liab };
 }

@@ -1,7 +1,84 @@
 <div id="v-penjualan" class="view">
-  <div class="btn-row">
-    <button class="btn btn-p" onclick="addSell()">＋ Faktur Penjualan</button>
-    <button class="btn btn-s" onclick="openImportDialog('penjualan')">📥 Import CSV</button>
+  <div class="card">
+    <div class="card-header-flex">
+      <h3>🧾 Faktur Penjualan</h3>
+      <button class="btn btn-s btn-sm" onclick="openImportDialog('penjualan')">📥 Import</button>
+    </div>
+    <div class="form-grid">
+      <div>
+        <label>No. Faktur</label>
+        <input id="pj-no" placeholder="PJ-001">
+      </div>
+      <div>
+        <label>Tanggal</label>
+        <input id="pj-tgl" type="date">
+      </div>
+      <div>
+        <label>Pelanggan</label>
+        <select id="pj-pel">
+          <option value="">— Pilih Pelanggan —</option>
+        </select>
+      </div>
+      <div>
+        <label>Channel</label>
+        <select id="pj-ch">
+          <option value="mitra">🤝 Mitra / B2B</option>
+          <option value="toko">🏪 Toko Fisik</option>
+          <option value="online">🌐 Online</option>
+          <option value="farm">🚜 Farm / D2C</option>
+        </select>
+      </div>
+      <div>
+        <label>Status</label>
+        <select id="pj-status">
+          <option value="lunas">Lunas (kas bertambah)</option>
+          <option value="piutang">Piutang</option>
+        </select>
+      </div>
+      <div>
+        <label>PPN (%)</label>
+        <input id="pj-ppn" type="number" value="0" min="0" max="100"
+               oninput="pjHitung()">
+      </div>
+      <div>
+        <label>Kantor / Lini</label>
+        <select id="pj-ent"></select>
+      </div>
+    </div>
+
+    <label style="margin-top:14px;display:block">Barang Terjual</label>
+    <div class="items-scroll">
+      <table class="items-table">
+        <thead><tr>
+          <th>Barang</th>
+          <th class="num">Qty</th>
+          <th class="num">Harga</th>
+          <th class="num">Subtotal</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="pj-items"></tbody>
+      </table>
+    </div>
+    <button class="btn btn-s btn-sm" onclick="pjAddItem()">＋ Tambah Baris</button>
+
+    <div class="total-area" id="pj-total"></div>
+
+    <div class="form-grid" style="grid-template-columns:1fr;margin-top:12px">
+      <div>
+        <label>Catatan</label>
+        <input id="pj-ket" placeholder="Keterangan tambahan (opsional)">
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn btn-p" onclick="pjSave()">💾 Simpan Faktur</button>
+    </div>
   </div>
-  <div class="card" id="penjualan-list"></div>
+
+  <div class="card">
+    <div class="card-header-flex">
+      <h3>Faktur Terakhir <span class="badge-count" id="pj-count">0</span></h3>
+    </div>
+    <div id="penjualan-list"></div>
+  </div>
 </div>

@@ -10,10 +10,13 @@
     <button class="btn btn-s btn-sm" onclick="logout()">Keluar</button>
   </div>
 
+  <!-- ═══ MENU UTAMA ═══ -->
+  <div class="section-label">Menu Utama</div>
+
   <div class="menu-card" onclick="openModule('dashboard')">
     <div class="menu-ico" style="background:#fee2e2">📊</div>
     <div class="menu-text"><b>Dashboard</b>
-      <div class="mute">Laba/rugi, neraca, ringkasan kas</div></div>
+      <div class="mute">Laba/rugi, neraca, kas</div></div>
     <span class="menu-arrow">›</span>
   </div>
 
@@ -23,6 +26,51 @@
       <div class="mute">Bahan baku & barang jadi</div></div>
     <span class="menu-arrow">›</span>
   </div>
+
+  <div class="menu-card" onclick="openModule('pembelian')">
+    <div class="menu-ico" style="background:#dcfce7">🛒</div>
+    <div class="menu-text"><b>Faktur Pembelian</b>
+      <div class="mute">Faktur beli & stok masuk</div></div>
+    <span class="menu-arrow">›</span>
+  </div>
+
+  <div class="menu-card" onclick="openModule('penjualan')">
+    <div class="menu-ico" style="background:#fef3c7">🧾</div>
+    <div class="menu-text"><b>Faktur Penjualan</b>
+      <div class="mute">Faktur jual & HPP</div></div>
+    <span class="menu-arrow">›</span>
+  </div>
+
+  <div class="menu-card" onclick="openModule('penerimaan')">
+    <div class="menu-ico" style="background:#dcfce7">💰</div>
+    <div class="menu-text"><b>Penerimaan & Kuitansi</b>
+      <div class="mute">Kas masuk · pelunasan · kuitansi</div></div>
+    <span class="menu-arrow">›</span>
+  </div>
+
+  <div class="menu-card" onclick="openModule('pembayaran')">
+    <div class="menu-ico" style="background:#fee2e2">💸</div>
+    <div class="menu-text"><b>Pembayaran</b>
+      <div class="mute">Kas keluar & beban</div></div>
+    <span class="menu-arrow">›</span>
+  </div>
+
+  <div class="menu-card" onclick="openModule('kaskecil')">
+    <div class="menu-ico" style="background:#f3e8ff">👛</div>
+    <div class="menu-text"><b>Kas Kecil</b>
+      <div class="mute">Petty cash per entitas</div></div>
+    <span class="menu-arrow">›</span>
+  </div>
+
+  <div class="menu-card" onclick="openModule('jurnal')">
+    <div class="menu-ico" style="background:#fef3c7">📚</div>
+    <div class="menu-text"><b>Jurnal & Buku Besar</b>
+      <div class="mute">Otomatis dari transaksi</div></div>
+    <span class="menu-arrow">›</span>
+  </div>
+
+  <!-- ═══ LAINNYA ═══ -->
+  <div class="section-label">Lainnya</div>
 
   <div class="menu-card" onclick="openModule('supplier')">
     <div class="menu-ico" style="background:#e0e7ff">🏭</div>
@@ -38,66 +86,4 @@
     <span class="menu-arrow">›</span>
   </div>
 
-  <div class="menu-card" onclick="openModule('pembelian')">
-    <div class="menu-ico" style="background:#dcfce7">🛒</div>
-    <div class="menu-text"><b>Pembelian</b>
-      <div class="mute">Faktur & stok masuk otomatis</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="openModule('penjualan')">
-    <div class="menu-ico" style="background:#fef3c7">🧾</div>
-    <div class="menu-text"><b>Penjualan</b>
-      <div class="mute">Faktur · mitra · toko · online</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="openModule('pembayaran')">
-    <div class="menu-ico" style="background:#fee2e2">💸</div>
-    <div class="menu-text"><b>Pembayaran</b>
-      <div class="mute">Pengeluaran kas & beban</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="openModule('penerimaan')">
-    <div class="menu-ico" style="background:#dcfce7">💰</div>
-    <div class="menu-text"><b>Penerimaan</b>
-      <div class="mute">Kas masuk & pelunasan piutang</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="openModule('kaskecil')">
-    <div class="menu-ico" style="background:#f3e8ff">👛</div>
-    <div class="menu-text"><b>Kas Kecil</b>
-      <div class="mute">Pecah dompet / petty cash</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="openModule('permintaan')">
-    <div class="menu-ico" style="background:#dbeafe">📝</div>
-    <div class="menu-text"><b>Permintaan Pembelian</b>
-      <div class="mute">Purchase request sebelum faktur</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="openModule('pesanan')">
-    <div class="menu-ico" style="background:#ffe4e6">🏭</div>
-    <div class="menu-text"><b>Pekerjaan Pesanan</b>
-      <div class="mute">Work order → barang jadi</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="openModule('stok')">
-    <div class="menu-ico" style="background:#ccfbf1">🏬</div>
-    <div class="menu-text"><b>Gudang & Stok</b>
-      <div class="mute">Kartu stok & nilai persediaan</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="openModule('jurnal')">
-    <div class="menu-ico" style="background:#fef3c7">📚</div>
-    <div class="menu-text"><b>Jurnal & Buku Besar</b>
-      <div class="mute">Otomatis dari semua transaksi</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
 </div>

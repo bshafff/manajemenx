@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   PENJUALAN — form inline multi-item + channel + HPP/Margin
+   PENJUALAN — form inline + channel + HPP + print docs
    ═══════════════════════════════════════════════════════════════ */
 
 function renderPenjualan(){
@@ -48,13 +48,14 @@ function renderPenjualan(){
       <thead><tr>
         <th>No</th><th>Tanggal</th><th>Pelanggan</th>
         <th>Ch</th><th class="num">Total</th>
-        <th class="num">Margin</th><th>Status</th><th></th>
+        <th class="num">Margin</th><th>Status</th><th>Aksi</th>
       </tr></thead>
       <tbody>${list.map(p => {
         const dpp = sum(p.items||[], i => i.qty*i.harga);
         const ppn = p.ppnPersen ? Math.round(dpp * p.ppnPersen / 100) : 0;
         const hpp = sum(p.items||[], i => i.qty*(i.hpp||0));
         const ch = CHANNELS[p.channel] || { ico:'•', nama:'-' };
+        const lunas = p.status === 'lunas';
         return `<tr>
           <td><b>${esc(p.no)}</b></td>
           <td>${dmy(p.tgl)}</td>
@@ -62,10 +63,17 @@ function renderPenjualan(){
           <td>${ch.ico}</td>
           <td class="num"><b>${rp(dpp+ppn)}</b></td>
           <td class="num pos">${rp(dpp - hpp)}</td>
-          <td><span class="tag ${p.status==='lunas'?'t-ok':'t-warn'}">${p.status}</span></td>
+          <td><span class="tag ${lunas?'t-ok':'t-warn'}">${p.status}</span></td>
           <td class="tb-actions">
-            <button class="ibtn" onclick="pjView('${p.id}')">👁</button>
-            <button class="ibtn" onclick="pjDel('${p.id}')">🗑️</button>
+            <button class="ibtn" onclick="pjView('${p.id}')" title="Detail">👁</button>
+            <button class="ibtn" onclick="printSuratJalan('${p.id}')" title="Surat Jalan">📋</button>
+            ${lunas
+              ? `<button class="ibtn" onclick="printKwitansiPenjualan('${p.id}')" title="Kwitansi">🖨</button>`
+              : `<button class="ibtn" style="opacity:.4;cursor:not-allowed" title="Kwitansi (perlu lunas)">🖨</button>`}
+            ${p.ppnPersen && p.nsfp
+              ? `<button class="ibtn" onclick="printFakturPajak('${p.id}','jual')" title="Faktur Pajak">🧾</button>`
+              : `<button class="ibtn" style="opacity:.4;cursor:not-allowed" title="Faktur Pajak (perlu NSFP + PPN)">🧾</button>`}
+            <button class="ibtn" onclick="pjDel('${p.id}')" title="Hapus">🗑️</button>
           </td>
         </tr>`;
       }).join('')}</tbody>
@@ -151,8 +159,8 @@ function pjHitung(){
       <span class="lbl">Margin</span>
       <span class="${margin>=0?'pos':'neg'}"><b>${rp(margin)}</b></span>
     </div>
-    ${warning ? `<div style="color:var(--red);font-size:11px;margin-top:6px;font-weight:700">
-      ⚠️ Ada barang yang stoknya kurang</div>` : ''}`;
+    ${warning ? `<div style="color:var(--red);font-size:11px;
+      margin-top:6px;font-weight:700">⚠️ Ada barang yang stoknya kurang</div>` : ''}`;
 }
 
 function pjSave(){
@@ -163,6 +171,8 @@ function pjSave(){
   const status = document.getElementById('pj-status').value;
   const ppnPersen = +document.getElementById('pj-ppn').value || 0;
   const entity = document.getElementById('pj-ent').value;
+  const noSuratJalan = document.getElementById('pj-sj').value.trim();
+  const nsfp = document.getElementById('pj-nsfp').value.trim();
   const ket = document.getElementById('pj-ket').value.trim();
   const items = pjReadItems();
 
@@ -170,7 +180,6 @@ function pjSave(){
   if (S.penjualan.find(x => x.no === no))
     return toast('No faktur sudah dipakai', 'error');
 
-  /* Cek stok total per barang */
   const perlu = {};
   items.forEach(it => perlu[it.barangId] = (perlu[it.barangId] || 0) + it.qty);
   for (const [bid, q] of Object.entries(perlu)){
@@ -184,7 +193,6 @@ function pjSave(){
   const ppnVal = Math.round(dpp * ppnPersen / 100);
   const total = dpp + ppnVal;
 
-  /* HPP snapshot + stok keluar */
   items.forEach(it => { it.hpp = stokKeluar(it.barangId, it.qty); });
   if (status === 'lunas') addKas(entity, total);
 
@@ -193,6 +201,7 @@ function pjSave(){
     pelanggan: pel ? pel.nama : '',
     pelangganId: pel ? pel.id : '',
     channel, status, items, ppnPersen, ket,
+    noSuratJalan, nsfp,
     dibayar: status === 'lunas' ? total : 0,
   };
   S.penjualan.unshift(rec);
@@ -206,6 +215,8 @@ function pjSave(){
   document.getElementById('pj-items').innerHTML = '';
   document.getElementById('pj-ket').value = '';
   document.getElementById('pj-ppn').value = 0;
+  document.getElementById('pj-sj').value = '';
+  document.getElementById('pj-nsfp').value = '';
   pjAddItem(); pjHitung();
 
   renderPenjualan();
@@ -225,6 +236,8 @@ function pjView(id){
       <tr><td>Channel</td><td>${ch.ico} ${ch.nama}</td></tr>
       <tr><td>Status</td><td><span class="tag ${p.status==='lunas'?'t-ok':'t-warn'}">${p.status}</span></td></tr>
       <tr><td>Kantor</td><td>${entInfo(p.entity).ico} ${entInfo(p.entity).nama}</td></tr>
+      ${p.noSuratJalan ? `<tr><td>Surat Jalan</td><td>${esc(p.noSuratJalan)}</td></tr>` : ''}
+      ${p.nsfp ? `<tr><td>NSFP</td><td><code>${esc(p.nsfp)}</code></td></tr>` : ''}
     </table>
     <table style="font-size:13px;margin-top:10px">
       <thead><tr><th>Barang</th><th class="num">Qty</th>

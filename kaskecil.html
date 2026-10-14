@@ -1,12 +1,55 @@
 <div id="v-kaskecil" class="view">
   <div class="grid" id="kk-stats"></div>
-  <div class="btn-row">
-    <button class="btn btn-p" onclick="isiKK()">⬇ Isi dari Kas Utama</button>
-    <button class="btn btn-s" onclick="pakaiKK()">⬆ Pengeluaran</button>
-    <button class="btn btn-s" onclick="openImportDialog('kaskecil')">📥 Import CSV</button>
-  </div>
+
   <div class="card">
-    <h3>Mutasi Kas Kecil</h3>
+    <div class="card-header-flex">
+      <h3>👛 Input Kas Kecil</h3>
+    </div>
+    <div class="form-grid">
+      <div>
+        <label>Kantor / Lini</label>
+        <select id="kk-ent" onchange="renderKasKecil()"></select>
+      </div>
+      <div>
+        <label>Jenis Transaksi</label>
+        <select id="kk-jenis">
+          <option value="masuk">⬇ Isi dari Kas Utama</option>
+          <option value="keluar">⬆ Pengeluaran</option>
+        </select>
+      </div>
+      <div>
+        <label>Tanggal</label>
+        <input id="kk-tgl" type="date">
+      </div>
+      <div>
+        <label>Jumlah</label>
+        <input id="kk-jml" type="number" value="0">
+      </div>
+      <div>
+        <label>Saldo Saat Ini</label>
+        <input id="kk-saldo" readonly style="background:#f3f4f6">
+      </div>
+      <div>
+        <label>Kas Utama Tersedia</label>
+        <input id="kk-kasutama" readonly style="background:#f3f4f6">
+      </div>
+    </div>
+    <div class="form-grid" style="grid-template-columns:1fr">
+      <div>
+        <label>Keterangan</label>
+        <input id="kk-ket" placeholder="Misal: beli ATK">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-p" onclick="kkSave()">💾 Simpan</button>
+      <button class="btn btn-s" onclick="openImportDialog('kaskecil')">📥 Import</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header-flex">
+      <h3>Mutasi <span class="badge-count" id="kk-count">0</span></h3>
+    </div>
     <div id="kk-mutasi"></div>
   </div>
 </div>

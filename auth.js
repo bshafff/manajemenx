@@ -2,8 +2,6 @@
    AUTH — login PIN sederhana + role-based access
    ═══════════════════════════════════════════════════════════════ */
 
-const K_SESSION = 'erp_session';
-
 /* ─── Role → modul yang boleh diakses ─── */
 const ROLE_ACCESS = {
   owner:    ['*'],

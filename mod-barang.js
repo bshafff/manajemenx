@@ -46,6 +46,7 @@ function renderBarang(){
           <td class="num">${rp(b.hargaJual)}</td>
           <td class="num">${b.minStok || 5}</td>
           <td class="tb-actions">
+            <button class="ibtn" onclick="kartuStok('${b.id}')" title="Kartu stok">📜</button>
             <button class="ibtn" onclick="editBarang('${b.id}')">✏️</button>
             <button class="ibtn" onclick="delBarang('${b.id}')">🗑️</button>
           </td>

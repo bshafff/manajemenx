@@ -6,7 +6,7 @@
     <div class="form-grid">
       <div>
         <label>Jenis Pembayaran</label>
-        <select id="pb-jenis" onchange="pbOnJenis()">
+        <select id="pay-jenis" onchange="payOnJenis()">
           <option value="supplier">Bayar Supplier (Hutang)</option>
           <option value="beban">Beban / Operasional</option>
           <option value="lain">Lain-lain</option>
@@ -14,21 +14,21 @@
       </div>
       <div>
         <label>ID Pembayaran</label>
-        <input id="pb-no" placeholder="PAY-001">
+        <input id="pay-no" placeholder="PAY-001">
       </div>
       <div>
         <label>Tanggal Bayar</label>
-        <input id="pb-tgl" type="date" value="">
+        <input id="pay-tgl" type="date" value="">
       </div>
       <div>
         <label>Supplier / Vendor</label>
-        <select id="pb-sup" onchange="pbOnSup()">
+        <select id="pay-sup" onchange="payOnSup()">
           <option value="">— Pilih Supplier —</option>
         </select>
       </div>
       <div>
         <label>Metode Bayar</label>
-        <select id="pb-metode">
+        <select id="pay-metode">
           <option value="cash">💵 Tunai</option>
           <option value="transfer">🏦 Transfer Bank</option>
           <option value="qris">📱 QRIS</option>
@@ -37,19 +37,19 @@
       </div>
       <div>
         <label>Akun Kas</label>
-        <select id="pb-ent"></select>
+        <select id="pay-ent"></select>
       </div>
       <div>
         <label>Total Bayar</label>
-        <input id="pb-jml" type="number" value="0" oninput="pbOnJml()">
+        <input id="pay-jml" type="number" value="0" oninput="payOnJml()">
       </div>
       <div>
         <label>Sisa Hutang</label>
-        <input id="pb-sisa" readonly value="0" style="background:#f3f4f6">
+        <input id="pay-sisa" readonly value="0" style="background:#f3f4f6">
       </div>
       <div>
         <label>Terbitkan Faktur</label>
-        <select id="pb-terbit">
+        <select id="pay-terbit">
           <option value="0">Tidak</option>
           <option value="1">Ya — kuitansi</option>
         </select>
@@ -58,7 +58,7 @@
     <div class="form-grid" style="grid-template-columns:1fr">
       <div>
         <label>Catatan</label>
-        <input id="pb-ket" placeholder="Misal: transfer BCA 15 Jan">
+        <input id="pay-ket" placeholder="Misal: transfer BCA 15 Jan">
       </div>
     </div>
     <div class="form-actions">

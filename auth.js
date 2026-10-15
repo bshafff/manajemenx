@@ -7,7 +7,7 @@ const ROLE_ACCESS = {
   owner:    ['*'],
   manajer:  ['home','dashboard','barang','supplier','pelanggan',
              'pembelian','penjualan','pembayaran','penerimaan',
-             'kaskecil','jurnal','produksi','panen','kandang'],
+             'kaskecil','jurnal','produksi','panen','kandang','eksekutif'],
   kasir:    ['home','dashboard','penjualan','pembayaran',
              'penerimaan','kaskecil'],
   gudang:   ['home','dashboard','barang','pembelian','produksi','panen'],

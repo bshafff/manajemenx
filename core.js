@@ -122,75 +122,6 @@ const brgKode  = k  => S.barang.find(b => b.kode === k);
 const totBuy   = p => sum(p.items, i => i.qty * i.harga);
 const totSell  = p => sum(p.items, i => i.qty * i.harga);
 const hppSell  = p => sum(p.items, i => i.qty * (i.hpp || 0));
-const nilaiStok = () => sum(S.barang, b => b.stok * (b.hargaBeli || 0));
-const piutang  = () => sum(S.penjualan.filter(p => p.status !== 'lunas'), totSell);
-const hutang   = () => sum(S.pembelian.filter(p => p.status !== 'lunas'), totBuy);
-
-function labaRugi(){
-  const pend  = sum(S.penjualan, totSell);
-  const hpp   = sum(S.penjualan, hppSell);
-  const beban = sum(
-    Object.values(S.kasKecil.perEntity || {})
-      .flatMap(x => x.mutasi || [])
-      .filter(m => m.keluar),
-    m => m.keluar
-  );
-  const kotor = pend - hpp;
-  return { pend, hpp, kotor, beban, bersih: kotor - beban };
-}
-
-function neraca(){
-  const aset = totalKas() + totalKK() + piutang() + nilaiStok();
-  const liab = hutang();
-  return { aset, liab, ekuitas: aset - liab };
-}
-
-function statsLini(){
-  const r = {};
-  Object.keys(LINI).forEach(k =>
-    r[k] = { pend:0, hpp:0, margin:0, beli:0, jual:0, stok:0, kritis:0 });
-
-  S.penjualan.forEach(p => p.items.forEach(it => {
-    const b = brg(it.barangId); if (!b) return;
-    const l = r[b.lini]; if (!l) return;
-    l.pend += it.qty * it.harga;
-    l.hpp  += it.qty * (it.hpp || 0);
-    l.jual += it.qty;
-  }));
-  S.pembelian.forEach(p => p.items.forEach(it => {
-    const b = brg(it.barangId); if (!b) return;
-    const l = r[b.lini]; if (!l) return;
-    l.beli += it.qty * it.harga;
-  }));
-  S.barang.forEach(b => {
-    const l = r[b.lini]; if (!l) return;
-    l.stok += b.stok * (b.hargaBeli || 0);
-    if (b.stok <= 5) l.kritis++;
-  });
-  Object.keys(r).forEach(k => r[k].margin = r[k].pend - r[k].hpp);
-  return r;
-}
-
-function jurnal(){
-  const J = [];
-  S.pembelian.forEach(p => J.push({ tgl:p.tgl, ref:p.no,
-    ket:'Beli barang', d:'Persediaan', k:'Kas/Hutang', j:totBuy(p) }));
-  S.penjualan.forEach(p => {
-    J.push({ tgl:p.tgl, ref:p.no, ket:'Jual barang',
-      d:'Kas/Piutang', k:'Pendapatan', j:totSell(p) });
-    J.push({ tgl:p.tgl, ref:p.no, ket:'HPP terjual',
-      d:'HPP', k:'Persediaan', j:hppSell(p) });
-  });
-  Object.entries(S.kasKecil.perEntity || {}).forEach(([ent, obj]) => {
-    (obj.mutasi || []).forEach(m => {
-      if (m.masuk) J.push({ tgl:m.tgl, ref:'KK-' + ent,
-        ket:'Isi kas kecil', d:'Kas Kecil', k:'Kas', j:m.masuk });
-      if (m.keluar) J.push({ tgl:m.tgl, ref:'KK-' + ent,
-        ket:'Kas kecil keluar', d:'Beban', k:'Kas Kecil', j:m.keluar });
-    });
-  });
-  return J.sort((a,b) => (b.tgl||'').localeCompare(a.tgl||''));
-}
 
 function stokMasuk(id, qty, harga){
   const b = brg(id); if (!b) return;
@@ -203,6 +134,33 @@ function stokKeluar(id, qty){
   const hpp = b.hargaBeli || 0;
   b.stok -= qty;
   return hpp;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   JURNAL — otomatis dari semua transaksi
+   (laba/rugi, neraca, piutang, hutang versi lama DIHAPUS —
+    gunakan labaRugiEnt / neracaEnt / piutangEnt di entities.js)
+   ═══════════════════════════════════════════════════════════════ */
+function jurnal(){
+  const J = [];
+  S.pembelian.forEach(p => J.push({
+    tgl:p.tgl, ref:p.no, ent:p.entity,
+    ket:'Beli barang', d:'Persediaan', k:'Kas/Hutang', j:totBuy(p) }));
+  S.penjualan.forEach(p => {
+    J.push({ tgl:p.tgl, ref:p.no, ent:p.entity, ket:'Jual barang',
+      d:'Kas/Piutang', k:'Pendapatan', j:totSell(p) });
+    J.push({ tgl:p.tgl, ref:p.no, ent:p.entity, ket:'HPP terjual',
+      d:'HPP', k:'Persediaan', j:hppSell(p) });
+  });
+  Object.entries(S.kasKecil.perEntity || {}).forEach(([ent, obj]) => {
+    (obj.mutasi || []).forEach(m => {
+      if (m.masuk) J.push({ tgl:m.tgl, ref:'KK-' + ent, ent,
+        ket:'Isi kas kecil', d:'Kas Kecil', k:'Kas', j:m.masuk });
+      if (m.keluar) J.push({ tgl:m.tgl, ref:'KK-' + ent, ent,
+        ket:'Kas kecil keluar', d:'Beban', k:'Kas Kecil', j:m.keluar });
+    });
+  });
+  return J.sort((a,b) => (b.tgl||'').localeCompare(a.tgl||''));
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -310,8 +268,9 @@ async function bootstrapSync(){
         if (d.permintaan)                    S.permintaan = d.permintaan;
         if (d.pesanan)                       S.pesanan    = d.pesanan;
         if (d.users && d.users.length)       S.users      = d.users;
+        if (d.entities && typeof d.entities === 'object')
+          S.entities = Object.assign(S.entities, d.entities);
         if (d.kk && d.kk.length){
-          // d.kk = array mutasi → kelompokkan per entity
           const per = {};
           d.kk.forEach(m => {
             const e = m.entity || 'HQ';

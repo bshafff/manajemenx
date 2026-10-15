@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    KONFIGURASI
    ═══════════════════════════════════════════════════════════════ */
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwFTiFWd8u_KPWWNhFey7G_G7CAb6HgaoQFkBIB2EjMmX0DZZQi-RamHNn7HffbQBHA/exec';
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxb816b1fVJ8MJ_xlqaBrQbnpvzv23EXs-akLWxofiEtZOpQelC8PliS9YEzOkY7yD4/exec';
 const API_KEY = 'ERP_2026';
 
 /* ═══════════════════════════════════════════════════════════════
@@ -329,7 +329,7 @@ let view = 'home';
 function renderNav(){
   const nav = $('#nav');
   if (!nav) return;
-  nav.innerHTML = NAV.map(n =>
+  nav.innerHTML = NAV.filter(n => canAccess(n.id)).map(n =>
     `<button data-t="${n.id}" class="${n.id===view?'on':''}">
        <span class="ic">${n.icon}</span>${n.label}
      </button>`).join('');
@@ -367,6 +367,7 @@ function refreshView(id){
     produksi:  () => typeof renderProduksi === 'function' && renderProduksi(),
     panen:     () => typeof renderPanen === 'function' && renderPanen(),
     kandang:   () => typeof renderKandang === 'function' && renderKandang(),
+    akun:      () => typeof renderAkun === 'function' && renderAkun(),
   };
   if (map[id]) map[id]();
 }
@@ -375,8 +376,9 @@ function refreshAll(){
   Object.keys({
     home:1, dashboard:1, barang:1, supplier:1, pelanggan:1,
     pembelian:1, penjualan:1, pembayaran:1, penerimaan:1,
-    kaskecil:1, jurnal:1, produksi:1, panen:1, kandang:1,
+    kaskecil:1, jurnal:1, produksi:1, panen:1, kandang:1, akun:1,
   }).forEach(refreshView);
+  if (typeof applyMenuAccess === 'function') applyMenuAccess();
   updateStatus();
   if (typeof renderEntitySwitcher === 'function') renderEntitySwitcher();
 }

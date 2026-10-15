@@ -123,6 +123,27 @@ const totBuy   = p => sum(p.items, i => i.qty * i.harga);
 const totSell  = p => sum(p.items, i => i.qty * i.harga);
 const hppSell  = p => sum(p.items, i => i.qty * (i.hpp || 0));
 
+function jurnal(){
+  const J = [];
+  S.pembelian.forEach(p => J.push({ tgl:p.tgl, ref:p.no, ent:p.entity,
+    ket:'Beli barang', d:'Persediaan', k:'Kas/Hutang', j:totBuy(p) }));
+  S.penjualan.forEach(p => {
+    J.push({ tgl:p.tgl, ref:p.no, ent:p.entity, ket:'Jual barang',
+      d:'Kas/Piutang', k:'Pendapatan', j:totSell(p) });
+    J.push({ tgl:p.tgl, ref:p.no, ent:p.entity, ket:'HPP terjual',
+      d:'HPP', k:'Persediaan', j:hppSell(p) });
+  });
+  Object.entries(S.kasKecil.perEntity || {}).forEach(([ent, obj]) => {
+    (obj.mutasi || []).forEach(m => {
+      if (m.masuk) J.push({ tgl:m.tgl, ref:'KK-' + ent, ent:ent,
+        ket:'Isi kas kecil', d:'Kas Kecil', k:'Kas', j:m.masuk });
+      if (m.keluar) J.push({ tgl:m.tgl, ref:'KK-' + ent, ent:ent,
+        ket:'Kas kecil keluar', d:'Beban', k:'Kas Kecil', j:m.keluar });
+    });
+  });
+  return J.sort((a,b) => (b.tgl||'').localeCompare(a.tgl||''));
+}
+
 function stokMasuk(id, qty, harga){
   const b = brg(id); if (!b) return;
   const nl = b.stok * (b.hargaBeli || 0);
@@ -134,33 +155,6 @@ function stokKeluar(id, qty){
   const hpp = b.hargaBeli || 0;
   b.stok -= qty;
   return hpp;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   JURNAL — otomatis dari semua transaksi
-   (laba/rugi, neraca, piutang, hutang versi lama DIHAPUS —
-    gunakan labaRugiEnt / neracaEnt / piutangEnt di entities.js)
-   ═══════════════════════════════════════════════════════════════ */
-function jurnal(){
-  const J = [];
-  S.pembelian.forEach(p => J.push({
-    tgl:p.tgl, ref:p.no, ent:p.entity,
-    ket:'Beli barang', d:'Persediaan', k:'Kas/Hutang', j:totBuy(p) }));
-  S.penjualan.forEach(p => {
-    J.push({ tgl:p.tgl, ref:p.no, ent:p.entity, ket:'Jual barang',
-      d:'Kas/Piutang', k:'Pendapatan', j:totSell(p) });
-    J.push({ tgl:p.tgl, ref:p.no, ent:p.entity, ket:'HPP terjual',
-      d:'HPP', k:'Persediaan', j:hppSell(p) });
-  });
-  Object.entries(S.kasKecil.perEntity || {}).forEach(([ent, obj]) => {
-    (obj.mutasi || []).forEach(m => {
-      if (m.masuk) J.push({ tgl:m.tgl, ref:'KK-' + ent, ent,
-        ket:'Isi kas kecil', d:'Kas Kecil', k:'Kas', j:m.masuk });
-      if (m.keluar) J.push({ tgl:m.tgl, ref:'KK-' + ent, ent,
-        ket:'Kas kecil keluar', d:'Beban', k:'Kas Kecil', j:m.keluar });
-    });
-  });
-  return J.sort((a,b) => (b.tgl||'').localeCompare(a.tgl||''));
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -267,10 +261,10 @@ async function bootstrapSync(){
         if (d.penerimaan)                    S.penerimaan = d.penerimaan;
         if (d.permintaan)                    S.permintaan = d.permintaan;
         if (d.pesanan)                       S.pesanan    = d.pesanan;
+        ['produksi','panen','kandang','kandangLog'].forEach(k => { if (Array.isArray(d[k])) S[k] = d[k]; });
         if (d.users && d.users.length)       S.users      = d.users;
-        if (d.entities && typeof d.entities === 'object')
-          S.entities = Object.assign(S.entities, d.entities);
         if (d.kk && d.kk.length){
+          // d.kk = array mutasi → kelompokkan per entity
           const per = {};
           d.kk.forEach(m => {
             const e = m.entity || 'HQ';
@@ -280,6 +274,8 @@ async function bootstrapSync(){
           });
           S.kasKecil.perEntity = per;
         }
+        /* perangkat baru: saldo kas dihitung ulang dari transaksi */
+        if (typeof kasKosong === 'function' && kasKosong()) recalcKas();
         persist();
         refreshAll();
         localStorage[K_BOOT] = '1';
@@ -368,6 +364,9 @@ function refreshView(id){
     penerimaan:() => typeof renderPenerimaan === 'function' && renderPenerimaan(),
     kaskecil:  () => typeof renderKasKecil === 'function' && renderKasKecil(),
     jurnal:    () => typeof renderJurnal === 'function' && renderJurnal(),
+    produksi:  () => typeof renderProduksi === 'function' && renderProduksi(),
+    panen:     () => typeof renderPanen === 'function' && renderPanen(),
+    kandang:   () => typeof renderKandang === 'function' && renderKandang(),
   };
   if (map[id]) map[id]();
 }
@@ -376,7 +375,7 @@ function refreshAll(){
   Object.keys({
     home:1, dashboard:1, barang:1, supplier:1, pelanggan:1,
     pembelian:1, penjualan:1, pembayaran:1, penerimaan:1,
-    kaskecil:1, jurnal:1,
+    kaskecil:1, jurnal:1, produksi:1, panen:1, kandang:1,
   }).forEach(refreshView);
   updateStatus();
   if (typeof renderEntitySwitcher === 'function') renderEntitySwitcher();

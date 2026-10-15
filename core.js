@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    KONFIGURASI
    ═══════════════════════════════════════════════════════════════ */
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbyC8yxByi0lmkQlujnR1Px5QmwGVF-PIlMqjofvEXN--BStn1vQu0WbPBukU0i8Vmrl/exec';
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwFTiFWd8u_KPWWNhFey7G_G7CAb6HgaoQFkBIB2EjMmX0DZZQi-RamHNn7HffbQBHA/exec';
 const API_KEY = 'ERP_2026';
 
 /* ═══════════════════════════════════════════════════════════════

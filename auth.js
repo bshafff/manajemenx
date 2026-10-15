@@ -44,8 +44,10 @@ function logout(){
 function canAccess(moduleId){
   const u = currentUser();
   if (!u) return false;
-  const allow = ROLE_ACCESS[u.role] || [];
-  if (allow.includes('*')) return true;
+  if (u.role === 'owner') return true;
+  if (moduleId === 'home') return true;
+  if (moduleId === 'akun') return false;           // hanya owner
+  const allow = Array.isArray(u.akses) ? u.akses : (ROLE_ACCESS[u.role] || []);
   return allow.includes(moduleId);
 }
 

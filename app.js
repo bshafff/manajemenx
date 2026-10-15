@@ -16,6 +16,7 @@ const VIEW_FILES = {
   'produksi':   'produksi.html',
   'panen':      'panen.html',
   'kandang':    'kandang.html',
+  'akun':       'akun.html',
 };
 
 async function loadAllViews(){

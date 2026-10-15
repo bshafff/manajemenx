@@ -13,6 +13,9 @@ const VIEW_FILES = {
   'penerimaan': 'penerimaan.html',
   'kaskecil':   'kaskecil.html',
   'jurnal':     'jurnal.html',
+  'produksi':   'produksi.html',
+  'panen':      'panen.html',
+  'kandang':    'kandang.html',
 };
 
 async function loadAllViews(){

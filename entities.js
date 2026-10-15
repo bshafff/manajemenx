@@ -82,3 +82,66 @@ function neracaEnt(kode){
   const aset = kas + kk + piu + stok;
   return { kas, kk, piu, stok, aset, liab: hut, ekuitas: aset - hut };
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   ENTITY CONTEXT — dipakai semua mod-*.js
+   ═══════════════════════════════════════════════════════════════ */
+let _activeEntity = 'ALL';
+
+/* Entitas yang sedang aktif di layar.
+   Owner bebas pilih (via switcher bar); role lain terkunci di
+   entitas masing-masing. */
+function activeEntity(){
+  const u = currentUser();
+  if (!u || u.role === 'owner') return _activeEntity;
+  return u.entity;
+}
+
+/* Filter satu record transaksi/master terhadap entitas aktif.
+   Cocok dipakai sebagai callback .filter(), e.g. list.filter(entityFilter) */
+function entityFilter(x){
+  const ent = activeEntity();
+  if (ent === 'ALL') return true;
+  return (x.entity || x.lini) === ent;
+}
+
+/* Piutang belum tertagih untuk satu entitas (atau 'ALL') */
+function piutangEnt(kode){
+  const filt = p => (kode === 'ALL' || p.entity === kode) && p.status !== 'lunas';
+  return sum(S.penjualan.filter(filt), p => totSell(p) - (p.dibayar || 0));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ENTITY SWITCHER BAR (owner only)
+   ═══════════════════════════════════════════════════════════════ */
+function renderEntitySwitcher(){
+  let bar = document.getElementById('ent-bar');
+  if (!bar){
+    bar = document.createElement('div');
+    bar.id = 'ent-bar';
+    const header = document.querySelector('header');
+    if (!header) return;
+    header.parentNode.insertBefore(bar, header.nextSibling);
+  }
+  const u = currentUser();
+  if (!u || u.role !== 'owner'){
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = 'flex';
+  const opts = [['ALL','🌐','Semua']]
+    .concat(Object.entries(ENTITIES).map(([k,e]) => [k, e.ico, e.nama]));
+  bar.innerHTML = opts.map(([k,ico,nama]) =>
+    `<button class="ent-pill ${activeEntity()===k?'on':''}"
+             onclick="setEntity('${k}')">${ico} ${nama}</button>`
+  ).join('');
+}
+
+function setEntity(k){
+  if (!ENTITIES[k] && k !== 'ALL') return;
+  _activeEntity = k;
+  renderEntitySwitcher();
+  refreshAll();
+}
+
+window.setEntity = setEntity;

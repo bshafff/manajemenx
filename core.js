@@ -368,6 +368,7 @@ function refreshView(id){
     panen:     () => typeof renderPanen === 'function' && renderPanen(),
     kandang:   () => typeof renderKandang === 'function' && renderKandang(),
     akun:      () => typeof renderAkun === 'function' && renderAkun(),
+    eksekutif: () => typeof renderEksekutif === 'function' && renderEksekutif(),
   };
   if (map[id]) map[id]();
 }
@@ -376,7 +377,7 @@ function refreshAll(){
   Object.keys({
     home:1, dashboard:1, barang:1, supplier:1, pelanggan:1,
     pembelian:1, penjualan:1, pembayaran:1, penerimaan:1,
-    kaskecil:1, jurnal:1, produksi:1, panen:1, kandang:1, akun:1,
+    kaskecil:1, jurnal:1, produksi:1, panen:1, kandang:1, akun:1, eksekutif:1,
   }).forEach(refreshView);
   if (typeof applyMenuAccess === 'function') applyMenuAccess();
   updateStatus();

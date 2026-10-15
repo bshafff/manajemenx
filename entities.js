@@ -83,65 +83,97 @@ function neracaEnt(kode){
   return { kas, kk, piu, stok, aset, liab: hut, ekuitas: aset - hut };
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ENTITY CONTEXT — dipakai semua mod-*.js
-   ═══════════════════════════════════════════════════════════════ */
+/* ─── Entity filter context ─── */
 let _activeEntity = 'ALL';
-
-/* Entitas yang sedang aktif di layar.
-   Owner bebas pilih (via switcher bar); role lain terkunci di
-   entitas masing-masing. */
 function activeEntity(){
   const u = currentUser();
   if (!u || u.role === 'owner') return _activeEntity;
   return u.entity;
 }
-
-/* Filter satu record transaksi/master terhadap entitas aktif.
-   Cocok dipakai sebagai callback .filter(), e.g. list.filter(entityFilter) */
 function entityFilter(x){
   const ent = activeEntity();
   if (ent === 'ALL') return true;
   return (x.entity || x.lini) === ent;
 }
-
-/* Piutang belum tertagih untuk satu entitas (atau 'ALL') */
 function piutangEnt(kode){
   const filt = p => (kode === 'ALL' || p.entity === kode) && p.status !== 'lunas';
   return sum(S.penjualan.filter(filt), p => totSell(p) - (p.dibayar || 0));
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ENTITY SWITCHER BAR (owner only)
-   ═══════════════════════════════════════════════════════════════ */
+/* ─── Entity switcher bar (owner saja) ─── */
 function renderEntitySwitcher(){
   let bar = document.getElementById('ent-bar');
   if (!bar){
     bar = document.createElement('div');
     bar.id = 'ent-bar';
     const header = document.querySelector('header');
-    if (!header) return;
     header.parentNode.insertBefore(bar, header.nextSibling);
   }
   const u = currentUser();
-  if (!u || u.role !== 'owner'){
-    bar.style.display = 'none';
-    return;
-  }
+  if (!u || u.role !== 'owner'){ bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
-  const opts = [['ALL','🌐','Semua']]
-    .concat(Object.entries(ENTITIES).map(([k,e]) => [k, e.ico, e.nama]));
+  const opts = [['ALL','🌐','Semua'], ...Object.entries(ENTITIES).map(([k,e]) => [k, e.ico, e.nama])];
   bar.innerHTML = opts.map(([k,ico,nama]) =>
-    `<button class="ent-pill ${activeEntity()===k?'on':''}"
-             onclick="setEntity('${k}')">${ico} ${nama}</button>`
+    `<button class="ent-pill ${activeEntity()===k?'on':''}" onclick="setEntity('${k}')">${ico} ${nama}</button>`
   ).join('');
 }
-
 function setEntity(k){
-  if (!ENTITIES[k] && k !== 'ALL') return;
   _activeEntity = k;
   renderEntitySwitcher();
   refreshAll();
 }
-
 window.setEntity = setEntity;
+
+/* ═══════════════════════════════════════════════════════════════
+   PEMULIHAN KAS dari riwayat transaksi
+   Kas per entitas hanya tersimpan di perangkat (tidak ada di Sheet).
+   Kalau perangkat baru / data browser terhapus, saldo kas dihitung
+   ulang dari transaksi yang ditarik dari Sheet.
+   ═══════════════════════════════════════════════════════════════ */
+function kasKosong(){
+  return Object.keys(ENTITIES).every(k => kasOf(k) === 0);
+}
+
+function recalcKas(){
+  const kas = {};
+  Object.keys(ENTITIES).forEach(k => kas[k] = 0);
+  const add = (e, v) => { const k = e || 'HQ'; kas[k] = (kas[k] || 0) + v; };
+  const totalFaktur = p => {
+    const dpp = sum(p.items || [], i => i.qty * i.harga);
+    return dpp + (p.ppnPersen ? Math.round(dpp * p.ppnPersen / 100) : 0);
+  };
+
+  /* Pembelian: uang keluar saat faktur dibuat (di luar pembayaran susulan) */
+  const bayarKeFaktur = {};
+  (S.pembayaran || []).forEach(b => {
+    add(b.entity, -(b.jumlah || 0));
+    (b.fakturLinks || []).forEach(l => bayarKeFaktur[l.id] = (bayarKeFaktur[l.id] || 0) + l.jumlah);
+  });
+  S.pembelian.forEach(p => {
+    const total = totalFaktur(p);
+    const paid = p.dibayar != null ? p.dibayar : (p.status === 'lunas' ? total : 0);
+    add(p.entity, -Math.max(0, paid - (bayarKeFaktur[p.id] || 0)));
+  });
+
+  /* Penjualan: uang masuk saat faktur dibuat (di luar penerimaan susulan) */
+  const terimaKeFaktur = {};
+  (S.penerimaan || []).forEach(t => {
+    add(t.entity, t.jumlah || 0);
+    (t.fakturLinks || []).forEach(l => terimaKeFaktur[l.id] = (terimaKeFaktur[l.id] || 0) + l.jumlah);
+  });
+  S.penjualan.forEach(p => {
+    const total = totalFaktur(p);
+    const paid = p.dibayar != null ? p.dibayar : (p.status === 'lunas' ? total : 0);
+    add(p.entity, Math.max(0, paid - (terimaKeFaktur[p.id] || 0)));
+  });
+
+  /* Kas kecil: "masuk" mengambil dari kas utama, "keluar" mengembalikan */
+  Object.entries(S.kasKecil.perEntity || {}).forEach(([e, o]) =>
+    (o.mutasi || []).forEach(m => add(e, (m.keluar || 0) - (m.masuk || 0))));
+
+  Object.keys(kas).forEach(k => {
+    if (!S.entities[k]) S.entities[k] = { kas: 0 };
+    S.entities[k].kas = kas[k];
+  });
+}
+window.recalcKas = recalcKas;

@@ -7,11 +7,11 @@ const ROLE_ACCESS = {
   owner:    ['*'],
   manajer:  ['home','dashboard','barang','supplier','pelanggan',
              'pembelian','penjualan','pembayaran','penerimaan',
-             'kaskecil','jurnal'],
+             'kaskecil','jurnal','produksi','panen','kandang'],
   kasir:    ['home','dashboard','penjualan','pembayaran',
              'penerimaan','kaskecil'],
-  gudang:   ['home','dashboard','barang','pembelian'],
-  produksi: ['home','dashboard'],
+  gudang:   ['home','dashboard','barang','pembelian','produksi','panen'],
+  produksi: ['home','dashboard','produksi','panen','kandang'],
 };
 
 /* ─── Session ─── */

@@ -10,14 +10,14 @@ const METODE_BAYAR = {
 
 function renderPembayaran(){
   /* Isi form */
-  const noEl = document.getElementById('pb-no');
+  const noEl = document.getElementById('pay-no');
   if (noEl && !noEl.value)
     noEl.value = 'PAY-' + String((S.pembayaran?.length || 0) + 1).padStart(3,'0');
-  const tglEl = document.getElementById('pb-tgl');
+  const tglEl = document.getElementById('pay-tgl');
   if (tglEl && !tglEl.value) tglEl.value = today();
 
   /* Isi dropdown supplier */
-  const supEl = document.getElementById('pb-sup');
+  const supEl = document.getElementById('pay-sup');
   if (supEl){
     const cur = supEl.value;
     supEl.innerHTML = `<option value="">— Pilih Supplier —</option>` +
@@ -28,7 +28,7 @@ function renderPembayaran(){
   }
 
   /* Isi dropdown entitas */
-  const entEl = document.getElementById('pb-ent');
+  const entEl = document.getElementById('pay-ent');
   if (entEl){
     const cur = entEl.value;
     const vis = visibleEntities();
@@ -81,15 +81,15 @@ function renderPembayaran(){
 }
 
 /* ─── Handler on-change ─── */
-function pbOnJenis(){
-  const jenis = document.getElementById('pb-jenis').value;
-  const supEl = document.getElementById('pb-sup');
+function payOnJenis(){
+  const jenis = document.getElementById('pay-jenis').value;
+  const supEl = document.getElementById('pay-sup');
   if (jenis !== 'supplier') supEl.value = '';
-  pbOnSup();
+  payOnSup();
 }
-function pbOnSup(){
-  const supId = document.getElementById('pb-sup').value;
-  const sisaEl = document.getElementById('pb-sisa');
+function payOnSup(){
+  const supId = document.getElementById('pay-sup').value;
+  const sisaEl = document.getElementById('pay-sisa');
   if (!sisaEl) return;
   if (!supId){
     sisaEl.value = 0;
@@ -103,22 +103,22 @@ function pbOnSup(){
   );
   sisaEl.value = hutang;
 }
-function pbOnJml(){
+function payOnJml(){
   /* Auto-update: kalau jenis supplier & total <= sisa, tandai */
   /* Optional: tidak ada efek */
 }
 
 /* ─── Save ─── */
 function saveBayar(){
-  const jenis = document.getElementById('pb-jenis').value;
-  const no = document.getElementById('pb-no').value.trim();
-  const tgl = document.getElementById('pb-tgl').value;
-  const supId = document.getElementById('pb-sup').value;
-  const metode = document.getElementById('pb-metode').value;
-  const entity = document.getElementById('pb-ent').value;
-  const jml = +document.getElementById('pb-jml').value || 0;
-  const terbit = document.getElementById('pb-terbit').value === '1';
-  const ket = document.getElementById('pb-ket').value.trim();
+  const jenis = document.getElementById('pay-jenis').value;
+  const no = document.getElementById('pay-no').value.trim();
+  const tgl = document.getElementById('pay-tgl').value;
+  const supId = document.getElementById('pay-sup').value;
+  const metode = document.getElementById('pay-metode').value;
+  const entity = document.getElementById('pay-ent').value;
+  const jml = +document.getElementById('pay-jml').value || 0;
+  const terbit = document.getElementById('pay-terbit').value === '1';
+  const ket = document.getElementById('pay-ket').value.trim();
 
   if (jml <= 0) return toast('Total bayar tidak valid', 'error');
   if (jml > kasOf(entity))
@@ -171,11 +171,11 @@ function saveBayar(){
   queue({ type:'pembayaran', action:'upsert', record:rec });
 
   /* Reset form & refresh */
-  document.getElementById('pb-jml').value = 0;
-  document.getElementById('pb-ket').value = '';
-  document.getElementById('pb-sup').value = '';
-  document.getElementById('pb-sisa').value = 0;
-  document.getElementById('pb-no').value =
+  document.getElementById('pay-jml').value = 0;
+  document.getElementById('pay-ket').value = '';
+  document.getElementById('pay-sup').value = '';
+  document.getElementById('pay-sisa').value = 0;
+  document.getElementById('pay-no').value =
     'PAY-' + String((S.pembayaran?.length || 0) + 1).padStart(3,'0');
 
   renderPembayaran();
@@ -210,6 +210,6 @@ function delBayar(id){
 
 window.saveBayar = saveBayar;
 window.delBayar = delBayar;
-window.pbOnJenis = pbOnJenis;
-window.pbOnSup = pbOnSup;
-window.pbOnJml = pbOnJml;
+window.payOnJenis = payOnJenis;
+window.payOnSup = payOnSup;
+window.payOnJml = payOnJml;

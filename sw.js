@@ -1,4 +1,4 @@
-const CACHE = 'imb-v5';
+const CACHE = 'imb-v6';
 const SHELL = [
   './', './index.html', './style.css',
   './core.js', './entities.js', './auth.js', './import.js',
@@ -6,11 +6,12 @@ const SHELL = [
   './mod-dashboard.js', './mod-barang.js', './mod-supplier.js',
   './mod-pelanggan.js', './mod-pembelian.js', './mod-penjualan.js',
   './mod-pembayaran.js', './mod-penerimaan.js', './mod-kaskecil.js',
-  './mod-jurnal.js',
+  './mod-jurnal.js', './mod-farm.js',
   './home.html', './dashboard.html', './barang.html',
   './supplier.html', './pelanggan.html', './pembelian.html',
   './penjualan.html', './pembayaran.html', './penerimaan.html',
   './kaskecil.html', './jurnal.html',
+  './produksi.html', './panen.html', './kandang.html',
   './manifest.json', './icon.svg', './version.json',
 ];
 

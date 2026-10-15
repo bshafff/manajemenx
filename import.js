@@ -85,6 +85,18 @@ function downloadCSV(filename, rows){
 /* ═══════════════════════════════════════════════════════════════
    KONFIGURASI TIAP JENIS IMPORT
    ═══════════════════════════════════════════════════════════════ */
+/* entitas dari CSV; kosong = entitas user (non-owner) atau HQ */
+function impEnt(r, errs, line){
+  const u = currentUser();
+  const def = (u && u.role !== 'owner') ? u.entity : 'HQ';
+  const ent = (r.entitas || def).toUpperCase();
+  if (!ENTITIES[ent]){ errs.push(`Baris ${line}: entitas ${ent} tidak valid`); return null; }
+  if (u && u.role !== 'owner' && ent !== u.entity){
+    errs.push(`Baris ${line}: kamu hanya boleh entitas ${u.entity}`); return null;
+  }
+  return ent;
+}
+
 const IMPORT_TYPES = {
 
   /* ─────── BARANG ─────── */
@@ -209,10 +221,10 @@ const IMPORT_TYPES = {
     label: 'Pembelian',
     hint: '1 faktur boleh >1 baris dengan <b>no</b> yang sama · <b>status</b>: lunas / hutang',
     template: () => [
-      ['no','tgl','supplier','status','kode_barang','qty','harga'],
-      ['PB-001','2026-01-15','PT Benih Unggul','lunas','SB-B01','100','3500'],
-      ['PB-001','2026-01-15','PT Benih Unggul','lunas','SB-B02','50','4000'],
-      ['PB-002','2026-01-15','CV Nutrisi Prima','hutang','DR-B01','200','12000'],
+      ['no','tgl','entitas','supplier','status','kode_barang','qty','harga'],
+      ['PB-001','2026-01-15','SB','PT Benih Unggul','lunas','SB-B01','100','3500'],
+      ['PB-001','2026-01-15','SB','PT Benih Unggul','lunas','SB-B02','50','4000'],
+      ['PB-002','2026-01-15','DR','CV Nutrisi Prima','hutang','DR-B01','200','12000'],
     ],
     importer(rows){
       const errs = []; const map = {};
@@ -225,10 +237,12 @@ const IMPORT_TYPES = {
         if (!b){ errs.push(`Baris ${line}: barang ${kode} tidak ada`); return; }
         const qty = parseNum(r.qty);
         if (qty <= 0){ errs.push(`Baris ${line}: qty harus > 0`); return; }
+        const ent = impEnt(r, errs, line); if (!ent) return;
         if (!map[no]){
           map[no] = {
             id: uid(), no,
             tgl: r.tgl || today(),
+            entity: ent,
             supplier: r.supplier || '',
             status: (r.status || 'lunas').toLowerCase() === 'hutang' ? 'hutang' : 'lunas',
             items: [],
@@ -244,7 +258,7 @@ const IMPORT_TYPES = {
         p.items.forEach(it => stokMasuk(it.barangId, it.qty, it.harga));
         if (p.status === 'lunas'){
           const total = p.items.reduce((a,x) => a + x.qty * x.harga, 0);
-          S.kas -= total;
+          addKas(p.entity, -total);
         }
         S.pembelian.unshift(p);
         queue({ type:'pembelian', action:'upsert', record:p });
@@ -259,10 +273,10 @@ const IMPORT_TYPES = {
     label: 'Penjualan',
     hint: '1 faktur boleh >1 baris dengan <b>no</b> yang sama · <b>status</b>: lunas / piutang',
     template: () => [
-      ['no','tgl','pelanggan','status','kode_barang','qty','harga'],
-      ['PJ-001','2026-01-15','Toko Buah Segar','lunas','SB-J01','5','95000'],
-      ['PJ-001','2026-01-15','Toko Buah Segar','lunas','SB-J02','3','65000'],
-      ['PJ-002','2026-01-15','Kafe Sehat','piutang','DR-J02','12','18000'],
+      ['no','tgl','entitas','pelanggan','status','kode_barang','qty','harga'],
+      ['PJ-001','2026-01-15','SB','Toko Buah Segar','lunas','SB-J01','5','95000'],
+      ['PJ-001','2026-01-15','SB','Toko Buah Segar','lunas','SB-J02','3','65000'],
+      ['PJ-002','2026-01-15','DR','Kafe Sehat','piutang','DR-J02','12','18000'],
     ],
     importer(rows){
       const errs = []; const map = {};
@@ -275,10 +289,12 @@ const IMPORT_TYPES = {
         if (!b){ errs.push(`Baris ${line}: barang ${kode} tidak ada`); return; }
         const qty = parseNum(r.qty);
         if (qty <= 0){ errs.push(`Baris ${line}: qty harus > 0`); return; }
+        const ent = impEnt(r, errs, line); if (!ent) return;
         if (!map[no]){
           map[no] = {
             id: uid(), no,
             tgl: r.tgl || today(),
+            entity: ent,
             pelanggan: r.pelanggan || '',
             status: (r.status || 'lunas').toLowerCase() === 'piutang' ? 'piutang' : 'lunas',
             items: [],
@@ -304,7 +320,7 @@ const IMPORT_TYPES = {
         p.items.forEach(it => { it.hpp = stokKeluar(it.barangId, it.qty); });
         if (p.status === 'lunas'){
           const total = p.items.reduce((a,x) => a + x.qty * x.harga, 0);
-          S.kas += total;
+          addKas(p.entity, total);
         }
         S.penjualan.unshift(p);
         queue({ type:'penjualan', action:'upsert', record:p });
@@ -317,11 +333,11 @@ const IMPORT_TYPES = {
   /* ─────── PEMBAYARAN ─────── */
   pembayaran: {
     label: 'Pembayaran',
-    hint: 'Kas keluar — saldo kas utama otomatis berkurang',
+    hint: 'Kas keluar — saldo kas entitas otomatis berkurang · <b>entitas</b>: HQ / SB / DR / AY / PK',
     template: () => [
-      ['tgl','ket','jumlah'],
-      ['2026-01-15','Bayar listrik','250000'],
-      ['2026-01-16','Bayar internet','450000'],
+      ['tgl','entitas','ket','jumlah'],
+      ['2026-01-15','HQ','Bayar listrik','250000'],
+      ['2026-01-16','HQ','Bayar internet','450000'],
     ],
     importer(rows){
       const errs = []; let count = 0;
@@ -329,15 +345,18 @@ const IMPORT_TYPES = {
         const line = i + 2;
         const jml = parseNum(r.jumlah);
         if (jml <= 0){ errs.push(`Baris ${line}: jumlah tidak valid`); return; }
+        const ent = impEnt(r, errs, line); if (!ent) return;
+        if (jml > kasOf(ent)){ errs.push(`Baris ${line}: kas ${ent} cuma ${rp(kasOf(ent))}`); return; }
         const rec = {
           id: uid(),
+          entity: ent,
           no: 'BY-' + Date.now().toString().slice(-6) + '-' + i,
           tgl: r.tgl || today(),
           ket: r.ket || 'Import CSV',
           jenis: 'beban',
           jumlah: jml,
         };
-        S.kas -= jml;
+        addKas(ent, -jml);
         if (!S.pembayaran) S.pembayaran = [];
         S.pembayaran.unshift(rec);
         queue({ type:'pembayaran', action:'upsert', record:rec });
@@ -350,11 +369,11 @@ const IMPORT_TYPES = {
   /* ─────── PENERIMAAN ─────── */
   penerimaan: {
     label: 'Penerimaan',
-    hint: 'Kas masuk — saldo kas utama otomatis bertambah',
+    hint: 'Kas masuk — saldo kas entitas otomatis bertambah · <b>entitas</b>: HQ / SB / DR / AY / PK',
     template: () => [
-      ['tgl','ket','jumlah'],
-      ['2026-01-15','Pelunasan piutang Toko A','1500000'],
-      ['2026-01-16','DP pesanan Kafe','500000'],
+      ['tgl','entitas','ket','jumlah'],
+      ['2026-01-15','SB','Pelunasan piutang Toko A','1500000'],
+      ['2026-01-16','DR','DP pesanan Kafe','500000'],
     ],
     importer(rows){
       const errs = []; let count = 0;
@@ -362,14 +381,16 @@ const IMPORT_TYPES = {
         const line = i + 2;
         const jml = parseNum(r.jumlah);
         if (jml <= 0){ errs.push(`Baris ${line}: jumlah tidak valid`); return; }
+        const ent = impEnt(r, errs, line); if (!ent) return;
         const rec = {
           id: uid(),
+          entity: ent,
           no: 'TR-' + Date.now().toString().slice(-6) + '-' + i,
           tgl: r.tgl || today(),
           ket: r.ket || 'Import CSV',
           jumlah: jml,
         };
-        S.kas += jml;
+        addKas(ent, jml);
         if (!S.penerimaan) S.penerimaan = [];
         S.penerimaan.unshift(rec);
         queue({ type:'penerimaan', action:'upsert', record:rec });
@@ -384,10 +405,10 @@ const IMPORT_TYPES = {
     label: 'Kas Kecil',
     hint: 'Isi kolom <b>masuk</b> ATAU <b>keluar</b> (yang lain isi 0)',
     template: () => [
-      ['tgl','ket','masuk','keluar'],
-      ['2026-01-15','Isi dari kas utama','500000','0'],
-      ['2026-01-15','Beli ATK','0','75000'],
-      ['2026-01-16','Bensin kurir','0','50000'],
+      ['tgl','entitas','ket','masuk','keluar'],
+      ['2026-01-15','SB','Isi dari kas utama','500000','0'],
+      ['2026-01-15','SB','Beli ATK','0','75000'],
+      ['2026-01-16','SB','Bensin kurir','0','50000'],
     ],
     importer(rows){
       const errs = []; let count = 0;
@@ -401,21 +422,23 @@ const IMPORT_TYPES = {
         if (masuk > 0 && keluar > 0){
           errs.push(`Baris ${line}: isi salah satu saja`); return;
         }
-        if (masuk > S.kas){
-          errs.push(`Baris ${line}: kas utama cuma ${rp(S.kas)}`); return;
+        const ent = impEnt(r, errs, line); if (!ent) return;
+        if (masuk > kasOf(ent)){
+          errs.push(`Baris ${line}: kas utama ${ent} cuma ${rp(kasOf(ent))}`); return;
         }
-        if (keluar > S.kasKecil.saldo){
-          errs.push(`Baris ${line}: saldo kas kecil cuma ${rp(S.kasKecil.saldo)}`); return;
+        if (keluar > kkSaldo(ent)){
+          errs.push(`Baris ${line}: saldo kas kecil ${ent} cuma ${rp(kkSaldo(ent))}`); return;
         }
-        S.kas += (keluar - masuk);
-        S.kasKecil.saldo += (masuk - keluar);
+        addKas(ent, keluar - masuk);
+        kkOf(ent).saldo += (masuk - keluar);
         const rec = {
           id: uid(),
+          entity: ent,
           tgl: r.tgl || today(),
           ket: r.ket || '',
           masuk, keluar,
         };
-        S.kasKecil.mutasi.unshift(rec);
+        kkOf(ent).mutasi.unshift(rec);
         queue({ type:'kk', action:'upsert', record:rec });
         count++;
       });

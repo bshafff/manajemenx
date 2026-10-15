@@ -3,7 +3,7 @@
    Hanya owner. Menu Home & navigasi mengikuti akses akun yang login.
    ═══════════════════════════════════════════════════════════════ */
 const MOD_LIST = [
-  ['dashboard','📊 Ringkasan'], ['barang','📦 Barang'], ['supplier','🚚 Supplier'],
+  ['dashboard','📊 Ringkasan'], ['eksekutif','🧭 Ringkasan Eksekutif'], ['barang','📦 Barang'], ['supplier','🚚 Supplier'],
   ['pelanggan','👥 Pelanggan'], ['pembelian','🛒 Pembelian'], ['penjualan','🧾 Penjualan'],
   ['penerimaan','💰 Penerimaan'], ['pembayaran','💸 Pembayaran'], ['kaskecil','👛 Kas Kecil'],
   ['jurnal','📒 Jurnal'], ['produksi','🏭 Produksi'], ['panen','🍓 Panen'], ['kandang','🐔 Kandang'],

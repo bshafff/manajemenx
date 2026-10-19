@@ -2,17 +2,10 @@
    MASTER PELANGGAN
    ═══════════════════════════════════════════════════════════════ */
 
-const CHANNELS = {
-  mitra:  { nama:'Mitra / B2B',   ico:'🤝' },
-  toko:   { nama:'Toko Fisik',    ico:'🏪' },
-  online: { nama:'Online',        ico:'🌐' },
-  farm:   { nama:'Farm / D2C',    ico:'🚜' },
-};
-
 function renderPelanggan(){
   const el = document.getElementById('pelanggan-list');
   if (!el) return;
-  const list = scopeEntity(S.pelanggan || []);
+  const list = S.pelanggan.filter(entityFilter);
   if (!list.length){
     el.innerHTML = `<div class="empty"><span class="e">👥</span>
       Belum ada pelanggan</div>`;

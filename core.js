@@ -61,7 +61,7 @@ const getQueue = () => { try { return JSON.parse(localStorage[K_QUEUE] || '[]');
 const setQueue = q => { localStorage[K_QUEUE] = JSON.stringify(q); updateStatus(); };
 
 /* ═══════════════════════════════════════════════════════════════
-   STATE
+   STATE & MIGRATION
    ═══════════════════════════════════════════════════════════════ */
 function seed(){
   return {
@@ -153,7 +153,7 @@ function persist(){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ENTITY & NAVIGATION HELPERS
+   ENTITY HELPERS
    ═══════════════════════════════════════════════════════════════ */
 const ENTITIES = {
   HQ: { kode:'HQ', nama:'Kantor Pusat', ico:'🏢', warna:'#6b7280' },
@@ -169,7 +169,7 @@ let activeDiv = localStorage[K_ACTIVE_DIV] || 'HQ';
 function enterDiv(div){
   activeDiv = div;
   localStorage[K_ACTIVE_DIV] = div;
-  view = 'dashboard'; // Default view per divisi
+  view = 'dashboard';
   closeModal();
   window.scrollTo(0,0);
   boot();
@@ -184,19 +184,25 @@ function exitDiv(){
   boot();
 }
 
-/* Filter otomatis berdasarkan divisi aktif */
+function visibleEntities(){
+  const u = typeof currentUser === 'function' ? currentUser() : null;
+  if (!u) return [];
+  if (u.role === 'owner') return Object.keys(ENTITIES);
+  return [u.entity];
+}
+
 function activeEntity(){
-  const u = currentUser();
-  if (u && u.role !== 'owner') return u.entity; // Manajer SB selalu SB
+  const u = typeof currentUser === 'function' ? currentUser() : null;
+  if (u && u.role !== 'owner') return u.entity;
   return activeDiv === 'HQ' ? 'ALL' : activeDiv;
 }
+
 function entityFilter(x){
   const a = activeEntity();
   if (a === 'ALL') return true;
   return x.entity === a;
 }
 
-/* Kas */
 function kasOf(k){ return (S.entities[k] && S.entities[k].kas) || 0; }
 function addKas(k, d){
   if (!S.entities[k]) S.entities[k] = { kas: 0 };
@@ -206,7 +212,6 @@ function totalKas(){
   return Object.keys(ENTITIES).reduce((s,k) => s + kasOf(k), 0);
 }
 
-/* Kas kecil */
 function kkOf(k){
   if (!S.kasKecil.perEntity) S.kasKecil.perEntity = {};
   if (!S.kasKecil.perEntity[k]) S.kasKecil.perEntity[k] = { saldo:0, mutasi:[] };
@@ -468,7 +473,7 @@ function pushAllToSheet(){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   NAVIGASI (SIDEBAR & BOTTOM NAV)
+   NAVIGASI
    ═══════════════════════════════════════════════════════════════ */
 let view = 'home';
 
@@ -483,7 +488,6 @@ function renderNav(){
       { id:'barang', icon:'📦', label:'Master' }
     ];
   } else {
-    const d = entInfo(activeDiv);
     navItems = [
       { id:'back', icon:'🏢', label:'Pusat' },
       { id:'dashboard', icon:'📊', label:'Dasbor' },
@@ -610,11 +614,13 @@ function refreshAll(){
   renderSidebar();
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   HOME
+   ═══════════════════════════════════════════════════════════════ */
 function renderHome(){
   const u = currentUser(); if (!u) return;
   const e = entInfo(u.entity);
   
-  // Sembunyikan header user-card di mode mobile, karena info ada di sidebar
   const ico = document.getElementById('uc-ico');
   const nm  = document.getElementById('uc-nama');
   const inf = document.getElementById('uc-info');
@@ -622,7 +628,6 @@ function renderHome(){
   if (nm)  nm.textContent  = u.nama;
   if (inf) inf.textContent = `${u.role.toUpperCase()} · ${e.nama}`;
 
-  // Render kartu divisi di home
   const divGrid = document.getElementById('home-div-grid');
   if (divGrid) {
     divGrid.innerHTML = Object.keys(LINI).map(k => {
@@ -689,7 +694,6 @@ function doLogin(){
   const r = login(uid_, pin);
   if (!r.ok){ toast(r.msg, 'error'); return; }
   
-  // Set activeDiv berdasarkan role user
   if (r.user.role !== 'owner') {
     activeDiv = r.user.entity;
   } else {
@@ -717,13 +721,166 @@ function hideWelcome(){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   EVENT LISTENERS & BOOT
+   MODAL, ITEM ROW & AUTO UPDATE
    ═══════════════════════════════════════════════════════════════ */
+let modalOk = null;
+function openModal(title, sub, body, onOk, okLabel){
+  const m = $('#modal');
+  $('#mc').innerHTML = `
+    <div class="mhead">
+      <div><h3>${esc(title)}</h3>${sub?`<div class="msub">${esc(sub)}</div>`:''}</div>
+      <button class="mx" onclick="closeModal()">×</button>
+    </div>
+    ${body}
+    <div class="mfoot">
+      <button class="btn btn-s" onclick="closeModal()">Batal</button>
+      <button class="btn btn-p" id="mOk">${esc(okLabel || 'Simpan')}</button>
+    </div>`;
+  modalOk = onOk;
+  $('#mOk').onclick = () => { if (modalOk) modalOk(); };
+  m.classList.add('show');
+}
+function closeModal(){ $('#modal').classList.remove('show'); modalOk = null; }
+document.addEventListener('DOMContentLoaded', () => {
+  const md = $('#modal');
+  if (md) md.onclick = e => { if (e.target.id === 'modal') closeModal(); };
+});
+
+function optBarang(filter, selectedKode){
+  return S.barang
+    .filter(b => !filter || (Array.isArray(filter) ? filter.includes(b.lini) : b.tipe === filter))
+    .map(b => `<option value="${b.id}" ${b.kode === selectedKode ? 'selected' : ''}>${esc(b.kode)} · ${esc(b.nama)}</option>`)
+    .join('');
+}
+function itemRow(prefix, filter, selectedKode){
+  return `<div class="irow">
+    <select class="${prefix}-brg">${optBarang(filter, selectedKode)}</select>
+    <input class="${prefix}-qty" type="number" min="1" value="1">
+    <input class="${prefix}-hrg" type="number" min="0" value="0">
+    <button class="x2" onclick="this.parentNode.remove()">✕</button>
+  </div>`;
+}
+function addRow(cid, prefix, filter){
+  const el = document.getElementById(cid);
+  if (el) el.insertAdjacentHTML('beforeend', itemRow(prefix, filter));
+}
+function readRows(prefix){
+  return [...document.querySelectorAll('.irow')]
+    .filter(r => r.querySelector('.' + prefix + '-brg'))
+    .map(r => ({
+      barangId: r.querySelector('.' + prefix + '-brg').value,
+      qty: +r.querySelector('.' + prefix + '-qty').value || 0,
+      harga: +r.querySelector('.' + prefix + '-hrg').value || 0,
+    })).filter(x => x.barangId && x.qty > 0);
+}
+document.addEventListener('change', e => {
+  if (e.target.matches('select[class$="-brg"]')){
+    const row = e.target.closest('.irow');
+    const b = brg(e.target.value); if (!b) return;
+    const hrg = row.querySelector('input[class$="-hrg"]');
+    const prefix = e.target.className.replace('-brg','');
+    if (hrg && (!+hrg.value || hrg.dataset.auto === '1')){
+      hrg.value = prefix.startsWith('o') || prefix.startsWith('j')
+        ? (b.hargaJual || b.hargaBeli) : b.hargaBeli;
+      hrg.dataset.auto = '1';
+    }
+  }
+});
+
+async function checkUpdate(silent){
+  try {
+    const r = await fetch('./version.json?t=' + Date.now(), { cache:'no-store' });
+    const j = await r.json();
+    const today = new Date().toISOString().slice(0,10);
+
+    const el = document.getElementById('app-version');
+    if (el) el.textContent = `v${j.v} · ${today}`;
+
+    const seen = localStorage.app_v;
+    if (!seen){ localStorage.app_v = String(j.v); return 'first'; }
+    if (String(j.v) !== String(seen)){
+      const btn = document.getElementById('btn-update');
+      const ver = document.getElementById('update-ver');
+      if (btn) btn.style.display = 'flex';
+      if (ver) ver.textContent = 'v' + j.v;
+      return String(j.v);
+    }
+    if (!silent) toast('✓ Sudah versi terbaru');
+    return 'latest';
+  } catch(e){
+    if (!silent) toast('Gagal cek update', 'error');
+    return 'error';
+  }
+}
+
+async function hardReset(){
+  try {
+    if ('serviceWorker' in navigator){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) await reg.unregister();
+    }
+    if ('caches' in window){
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  } catch(e){}
+  location.replace(location.pathname + '?fresh=' + Date.now());
+}
+
+async function manualUpdate(){
+  toast('Memeriksa update…');
+  const r = await checkUpdate(true);
+  if (r === 'error'){ toast('Gagal cek, periksa koneksi', 'error'); return; }
+  if (r === 'first' || r === 'latest'){ toast('✓ Sudah versi terbaru'); return; }
+  toast('🔄 Versi baru v' + r + ' · memuat ulang…');
+  setTimeout(hardReset, 800);
+}
+
+let installPrompt = null;
+function showInstall(text, fn){
+  if ($('#ib')) return;
+  const b = document.createElement('button');
+  b.id = 'ib';
+  b.innerHTML = text + ' <span style="margin-left:8px;opacity:.7">✕</span>';
+  b.style.cssText = `position:fixed;bottom:calc(86px + env(safe-area-inset-bottom));
+    left:50%;transform:translateX(-50%);background:#2d5016;color:#fff;
+    padding:12px 22px;border:0;border-radius:30px;font:600 14px Figtree;
+    box-shadow:0 4px 12px rgba(0,0,0,.25);z-index:9999;white-space:nowrap;
+    font-family:inherit;cursor:pointer;`;
+  b.onclick = ev => {
+    if (ev.target.tagName === 'SPAN'){ b.remove(); return; }
+    fn();
+  };
+  document.body.appendChild(b);
+}
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  installPrompt = e;
+  showInstall('⬇ Install Aplikasi', async () => {
+    installPrompt.prompt();
+    await installPrompt.userChoice;
+    installPrompt = null;
+    $('#ib')?.remove();
+  });
+});
+window.addEventListener('appinstalled', () => $('#ib')?.remove());
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) &&
+    !(matchMedia('(display-mode: standalone)').matches || navigator.standalone)){
+  window.addEventListener('load', () => showInstall('⬇ Cara pasang di iPhone', () => {
+    alert('Buka lewat Safari → Bagikan → "Tambah ke Layar Utama".');
+  }));
+}
+
 window.addEventListener('online', () => { updateStatus(); toast('Online'); flush(); });
 window.addEventListener('offline', () => { updateStatus(); toast('Offline','error'); });
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden){ flush(); checkUpdate(true); }
 });
+
+const _api = new URLSearchParams(location.search).get('api');
+if (_api){ localStorage[K_URL] = _api; history.replaceState(null,'',location.pathname); }
+if (new URLSearchParams(location.search).get('fresh'))
+  history.replaceState(null,'',location.pathname);
 
 function boot(){
   if (!hasUrl()){ localStorage[K_URL] = DEFAULT_URL; }
@@ -733,7 +890,6 @@ function boot(){
     return;
   }
 
-  // Pastikan activeDiv valid
   const u = currentUser();
   if (u.role !== 'owner') {
     activeDiv = u.entity;

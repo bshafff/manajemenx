@@ -17,18 +17,26 @@
 </head>
 <body>
 
+<aside id="sidebar"></aside>
+
 <header>
-  <div class="hbtns">
-    <button onclick="sync()" title="Sinkron ke Google Sheet">☁ Sync</button>
-    <button onclick="manualUpdate()" title="Cek versi terbaru">🔄</button>
-  </div>
-  <h1>IMB</h1>
-  <div class="sub" id="companyName">PT. Insan Muda Berdikari</div>
-  <span class="status" id="sy"></span>
-  <div class="badge-wrap"><span class="badge" id="cn"></span></div>
+  <div class="hdr-logo">🌱</div>
+  <h1>Processing IMB</h1>
+  <div class="hdr-sub" id="companyName">PT. Insan Muda Berdikari</div>
+  <div class="hdr-status" id="sy">—</div>
+  <div class="hdr-version" id="app-version">v- · --</div>
 </header>
 
 <div id="st"></div>
+
+<div class="hdr-btns" id="hdr-btns">
+  <button class="hdr-btn hdr-btn-update" id="btn-update" style="display:none" onclick="manualUpdate()">
+    <span class="hdr-badge">NEW</span><span id="update-ver">v?</span>
+  </button>
+  <button class="hdr-btn hdr-btn-sync" onclick="sync()">↑ Sync</button>
+  <button class="hdr-btn hdr-btn-pull" onclick="pullFromSheet()">↓ Muat</button>
+  <button class="hdr-btn hdr-btn-disc" onclick="disconnect()">Putuskan</button>
+</div>
 
 <main>
   <div id="welcome"></div>
@@ -40,7 +48,6 @@
 <div id="modal"><div class="mc" id="mc"></div></div>
 
 <script src="./core.js"></script>
-<script src="./entities.js"></script>
 <script src="./auth.js"></script>
 <script src="./import.js"></script>
 <script src="./mod-print.js"></script>
@@ -54,9 +61,6 @@
 <script src="./mod-penerimaan.js"></script>
 <script src="./mod-kaskecil.js"></script>
 <script src="./mod-jurnal.js"></script>
-<script src="./mod-farm.js"></script>
-<script src="./mod-akun.js"></script>
-<script src="./mod-eksekutif.js"></script>
 <script src="./app.js"></script>
 </body>
 </html>

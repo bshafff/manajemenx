@@ -1,6 +1,7 @@
 <div id="v-home" class="view active">
 
-  <div class="card" style="display:flex;align-items:center;gap:12px">
+  <!-- Info user (hanya tampil di mobile) -->
+  <div class="card" id="user-card" style="display:flex;align-items:center;gap:12px">
     <div id="uc-ico" style="font-size:32px">👤</div>
     <div style="flex:1">
       <div id="uc-nama" style="font-weight:700"></div>
@@ -9,140 +10,45 @@
     <button class="btn btn-s btn-sm" onclick="logout()">Keluar</button>
   </div>
 
-  <!-- ═══ OVERVIEW ═══ -->
-  <div class="section-label">Overview</div>
-
-  <div class="menu-card" onclick="openModule('eksekutif')">
-    <div class="menu-ico" style="background:#fef3c7">🧭</div>
-    <div class="menu-text"><b>Ringkasan Eksekutif</b>
-      <div class="mute">Laba · ke mana uang keluar · titik penghematan</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
+  <div class="section-label">Menu Pusat</div>
 
   <div class="menu-card" onclick="openModule('dashboard')">
     <div class="menu-ico" style="background:#fee2e2">📊</div>
-    <div class="menu-text"><b>Dashboard</b>
-      <div class="mute">Laba/rugi, neraca, kas per entitas</div></div>
+    <div class="menu-text"><b>Dashboard Konsolidasi</b>
+      <div class="mute">Laba/rugi semua divisi</div></div>
     <span class="menu-arrow">›</span>
   </div>
-
-  <!-- ═══ TRANSAKSI ═══ -->
-  <div class="section-label">Transaksi</div>
-
-  <div class="menu-card" onclick="openModule('pembelian')">
-    <div class="menu-ico" style="background:#dcfce7">🛒</div>
-    <div class="menu-text"><b>Faktur Pembelian</b>
-      <div class="mute">Beli dari supplier · stok masuk</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="openModule('penjualan')">
-    <div class="menu-ico" style="background:#fef3c7">🧾</div>
-    <div class="menu-text"><b>Faktur Penjualan</b>
-      <div class="mute">Jual · surat jalan · kwitansi · faktur pajak</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="openModule('penerimaan')">
-    <div class="menu-ico" style="background:#dcfce7">💰</div>
-    <div class="menu-text"><b>Penerimaan Uang</b>
-      <div class="mute">Kas masuk · pelunasan piutang · kuitansi</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="openModule('pembayaran')">
-    <div class="menu-ico" style="background:#fee2e2">💸</div>
-    <div class="menu-text"><b>Pembayaran</b>
-      <div class="mute">Kas keluar · pelunasan hutang · bukti bayar</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="openModule('kaskecil')">
-    <div class="menu-ico" style="background:#f3e8ff">👛</div>
-    <div class="menu-text"><b>Kas Kecil</b>
-      <div class="mute">Petty cash per entitas</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <!-- ═══ FARM ═══ -->
-  <div class="section-label">Farm</div>
-
-  <div class="menu-card" onclick="openModule('produksi')">
-    <div class="menu-ico" style="background:#e0e7ff">🏭</div>
-    <div class="menu-text"><b>Produksi (Work Order)</b>
-      <div class="mute">Bahan → barang jadi · HPP otomatis</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="openModule('panen')">
-    <div class="menu-ico" style="background:#fee2e2">🍓</div>
-    <div class="menu-text"><b>Panen Stroberi</b>
-      <div class="mute">Kg per grade · masuk stok</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="openModule('kandang')">
-    <div class="menu-ico" style="background:#fef3c7">🐔</div>
-    <div class="menu-text"><b>Kandang Ayam</b>
-      <div class="mute">Populasi · mortalitas · pakan · FCR</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <!-- ═══ SISTEM ═══ -->
-  <div class="section-label">Sistem</div>
-
-  <div class="menu-card" onclick="openModule('akun')">
-    <div class="menu-ico" style="background:#e0f2fe">👤</div>
-    <div class="menu-text"><b>Kelola Akun</b>
-      <div class="mute">Tambah akun · atur lini &amp; akses menu</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="backupData()">
-    <div class="menu-ico" style="background:#dcfce7">💾</div>
-    <div class="menu-text"><b>Backup Data</b>
-      <div class="mute">Unduh semua data (JSON)</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="restoreData()">
-    <div class="menu-ico" style="background:#f3e8ff">♻️</div>
-    <div class="menu-text"><b>Restore Data</b>
-      <div class="mute">Pulihkan dari file backup (owner)</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <!-- ═══ LAPORAN ═══ -->
-  <div class="section-label">Laporan</div>
 
   <div class="menu-card" onclick="openModule('jurnal')">
     <div class="menu-ico" style="background:#fef3c7">📚</div>
-    <div class="menu-text"><b>Jurnal & Buku Besar</b>
-      <div class="mute">Otomatis dari semua transaksi</div></div>
+    <div class="menu-text"><b>Jurnal Global</b>
+      <div class="mute">Semua transaksi</div></div>
     <span class="menu-arrow">›</span>
   </div>
 
-  <!-- ═══ MASTER DATA ═══ -->
+  <div class="section-label">Pilih Divisi</div>
+  
+  <div class="grid" id="home-div-grid" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px">
+    <!-- Diisi via JS -->
+  </div>
+
   <div class="section-label">Master Data</div>
 
   <div class="menu-card" onclick="openModule('barang')">
     <div class="menu-ico" style="background:#f3e8ff">📦</div>
-    <div class="menu-text"><b>Barang</b>
-      <div class="mute">Bahan baku & barang jadi</div></div>
+    <div class="menu-text"><b>Barang</b></div>
     <span class="menu-arrow">›</span>
   </div>
 
   <div class="menu-card" onclick="openModule('supplier')">
     <div class="menu-ico" style="background:#e0e7ff">🏭</div>
-    <div class="menu-text"><b>Supplier</b>
-      <div class="mute">Pemasok barang & bahan</div></div>
+    <div class="menu-text"><b>Supplier</b></div>
     <span class="menu-arrow">›</span>
   </div>
 
   <div class="menu-card" onclick="openModule('pelanggan')">
     <div class="menu-ico" style="background:#dbeafe">👥</div>
-    <div class="menu-text"><b>Pelanggan</b>
-      <div class="mute">Mitra · Toko · Online · Farm</div></div>
+    <div class="menu-text"><b>Pelanggan</b></div>
     <span class="menu-arrow">›</span>
   </div>
 

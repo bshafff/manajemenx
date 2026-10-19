@@ -11,7 +11,6 @@ const LINI = {
   AY: { nama: 'Ayam',       ico: '🐔', warna: '#b45309' },
   PK: { nama: 'Pakan Ayam', ico: '🌾', warna: '#16a34a' },
 };
-const liniOf = kode => String(kode || '').split('-')[0].toUpperCase();
 
 const CHANNELS = {
   mitra:  { nama:'Mitra / B2B', ico:'🤝' },
@@ -53,7 +52,7 @@ const K_DATA       = 'erp_data_v6';
 const K_QUEUE      = 'erp_queue_v2';
 const K_BOOT       = 'erp_bootstrapped';
 const K_SESSION    = 'erp_session';
-const K_ACTIVE_ENT = 'erp_active_entity';
+const K_ACTIVE_DIV = 'erp_active_div';
 
 const getUrl   = () => localStorage[K_URL] || '';
 const hasUrl   = () => !!localStorage[K_URL];
@@ -96,55 +95,34 @@ let S;
 try { S = JSON.parse(localStorage[K_DATA]) || seed(); }
 catch { S = seed(); }
 
-/* ═══════════════════════════════════════════════════════════════
-   MIGRASI OTOMATIS
-   ═══════════════════════════════════════════════════════════════ */
 function migrate(){
   let changed = false;
-
   if (!S.entities){
-    S.entities = {
-      HQ: { kas: S.kas || 0 },
-      SB: { kas: 0 }, DR: { kas: 0 }, AY: { kas: 0 }, PK: { kas: 0 },
-    };
-    delete S.kas;
-    changed = true;
+    S.entities = { HQ: { kas: S.kas || 0 }, SB: { kas: 0 }, DR: { kas: 0 }, AY: { kas: 0 }, PK: { kas: 0 } };
+    delete S.kas; changed = true;
   }
   ['HQ','SB','DR','AY','PK'].forEach(k => {
     if (!S.entities[k]){ S.entities[k] = { kas: 0 }; changed = true; }
-    if (typeof S.entities[k].kas !== 'number'){
-      S.entities[k].kas = 0; changed = true;
-    }
+    if (typeof S.entities[k].kas !== 'number'){ S.entities[k].kas = 0; changed = true; }
   });
 
   if (!S.kasKecil) S.kasKecil = {};
   if (!S.kasKecil.perEntity){
     const per = {};
-    ['HQ','SB','DR','AY','PK'].forEach(k =>
-      per[k] = { saldo: 0, mutasi: [] });
+    ['HQ','SB','DR','AY','PK'].forEach(k => per[k] = { saldo: 0, mutasi: [] });
     if (typeof S.kasKecil.saldo === 'number'){
       per.HQ.saldo = S.kasKecil.saldo || 0;
       per.HQ.mutasi = Array.isArray(S.kasKecil.mutasi)
-        ? S.kasKecil.mutasi.map(m => ({ ...m, entity: m.entity || 'HQ' }))
-        : [];
+        ? S.kasKecil.mutasi.map(m => ({ ...m, entity: m.entity || 'HQ' })) : [];
     }
-    S.kasKecil = { perEntity: per };
-    changed = true;
+    S.kasKecil = { perEntity: per }; changed = true;
   }
   ['HQ','SB','DR','AY','PK'].forEach(k => {
-    if (!S.kasKecil.perEntity[k]){
-      S.kasKecil.perEntity[k] = { saldo: 0, mutasi: [] };
-      changed = true;
-    }
-    if (!Array.isArray(S.kasKecil.perEntity[k].mutasi)){
-      S.kasKecil.perEntity[k].mutasi = [];
-      changed = true;
-    }
+    if (!S.kasKecil.perEntity[k]){ S.kasKecil.perEntity[k] = { saldo: 0, mutasi: [] }; changed = true; }
+    if (!Array.isArray(S.kasKecil.perEntity[k].mutasi)){ S.kasKecil.perEntity[k].mutasi = []; changed = true; }
   });
 
-  ['barang','supplier','pelanggan','pembelian','penjualan',
-   'pembayaran','penerimaan','transfer','permintaan','pesanan',
-   'jurnalUmum'].forEach(k => {
+  ['barang','supplier','pelanggan','pembelian','penjualan','pembayaran','penerimaan','transfer','permintaan','pesanan','jurnalUmum'].forEach(k => {
     if (!Array.isArray(S[k])){ S[k] = []; changed = true; }
   });
 
@@ -155,28 +133,17 @@ function migrate(){
       { id:'u-man-dr', nama:'Manajer DR', role:'manajer', entity:'DR', pin:'2222' },
       { id:'u-man-ay', nama:'Manajer AY', role:'manajer', entity:'AY', pin:'3333' },
       { id:'u-man-pk', nama:'Manajer PK', role:'manajer', entity:'PK', pin:'4444' },
-    ];
-    changed = true;
+    ]; changed = true;
   }
 
-  ['pembelian','penjualan','pembayaran','penerimaan','permintaan',
-   'pesanan','transfer'].forEach(key => {
-    (S[key] || []).forEach(r => {
-      if (!r.entity){ r.entity = 'HQ'; changed = true; }
-    });
+  ['pembelian','penjualan','pembayaran','penerimaan','permintaan','pesanan','transfer'].forEach(key => {
+    (S[key] || []).forEach(r => { if (!r.entity){ r.entity = 'HQ'; changed = true; } });
   });
   (S.barang || []).forEach(b => {
-    if (!b.lini){
-      b.lini = (b.kode || '').split('-')[0] || 'SB';
-      if (!LINI[b.lini]) b.lini = 'SB';
-      changed = true;
-    }
+    if (!b.lini){ b.lini = (b.kode || '').split('-')[0] || 'SB'; if (!LINI[b.lini]) b.lini = 'SB'; changed = true; }
   });
 
-  if (changed){
-    console.log('✓ Data dimigrasi ke struktur v6');
-    localStorage[K_DATA] = JSON.stringify(S);
-  }
+  if (changed){ localStorage[K_DATA] = JSON.stringify(S); }
 }
 migrate();
 
@@ -186,7 +153,7 @@ function persist(){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   ENTITY HELPERS
+   ENTITY & NAVIGATION HELPERS
    ═══════════════════════════════════════════════════════════════ */
 const ENTITIES = {
   HQ: { kode:'HQ', nama:'Kantor Pusat', ico:'🏢', warna:'#6b7280' },
@@ -197,23 +164,31 @@ const ENTITIES = {
 };
 const entInfo = k => ENTITIES[k] || { kode:k, nama:k||'?', ico:'•', warna:'#888' };
 
-function visibleEntities(){
-  const u = typeof currentUser === 'function' ? currentUser() : null;
-  if (!u) return [];
-  if (u.role === 'owner') return Object.keys(ENTITIES);
-  return [u.entity];
+let activeDiv = localStorage[K_ACTIVE_DIV] || 'HQ';
+
+function enterDiv(div){
+  activeDiv = div;
+  localStorage[K_ACTIVE_DIV] = div;
+  view = 'dashboard'; // Default view per divisi
+  closeModal();
+  window.scrollTo(0,0);
+  boot();
 }
 
-function activeEntity(){
-  const u = typeof currentUser === 'function' ? currentUser() : null;
-  if (u && u.role !== 'owner') return u.entity;
-  return localStorage[K_ACTIVE_ENT] || 'ALL';
+function exitDiv(){
+  activeDiv = 'HQ';
+  localStorage[K_ACTIVE_DIV] = 'HQ';
+  view = 'home';
+  closeModal();
+  window.scrollTo(0,0);
+  boot();
 }
-function setActiveEntity(k){
-  if (k === 'ALL' || ENTITIES[k]){
-    localStorage[K_ACTIVE_ENT] = k;
-    refreshAll();
-  }
+
+/* Filter otomatis berdasarkan divisi aktif */
+function activeEntity(){
+  const u = currentUser();
+  if (u && u.role !== 'owner') return u.entity; // Manajer SB selalu SB
+  return activeDiv === 'HQ' ? 'ALL' : activeDiv;
 }
 function entityFilter(x){
   const a = activeEntity();
@@ -248,38 +223,26 @@ function totalKK(){
 const brg      = id => S.barang.find(b => b.id === id);
 const brgKode  = k  => S.barang.find(b => b.kode === k);
 
-/* PPN */
 function dppOf(p){ return sum(p.items || [], i => i.qty * i.harga); }
-function ppnOf(p){
-  const dpp = dppOf(p);
-  return Math.round(dpp * (p.ppnPersen || 0) / 100);
-}
+function ppnOf(p){ return Math.round(dppOf(p) * (p.ppnPersen || 0) / 100); }
 function totSell(p){ return dppOf(p) + ppnOf(p); }
 function totBuy(p){  return dppOf(p) + ppnOf(p); }
 const hppSell = p => sum(p.items || [], i => i.qty * (i.hpp || 0));
-
 const nilaiStok = () => sum(S.barang, b => b.stok * (b.hargaBeli || 0));
 
 function piutangEnt(kode){
-  return sum(S.penjualan.filter(p =>
-    (kode === 'ALL' || p.entity === kode) && p.status !== 'lunas'
-  ), p => totSell(p) - (p.dibayar || 0));
+  return sum(S.penjualan.filter(p => (kode === 'ALL' || p.entity === kode) && p.status !== 'lunas'), p => totSell(p) - (p.dibayar || 0));
 }
 function hutangEnt(kode){
-  return sum(S.pembelian.filter(p =>
-    (kode === 'ALL' || p.entity === kode) && p.status !== 'lunas'
-  ), p => totBuy(p) - (p.dibayar || 0));
+  return sum(S.pembelian.filter(p => (kode === 'ALL' || p.entity === kode) && p.status !== 'lunas'), p => totBuy(p) - (p.dibayar || 0));
 }
-const piutang = () => piutangEnt('ALL');
-const hutang  = () => hutangEnt('ALL');
 
 function labaRugiEnt(kode){
   const filt = x => kode === 'ALL' || x.entity === kode;
   const penj = S.penjualan.filter(filt);
   let kkJ = [];
   if (kode === 'ALL'){
-    kkJ = Object.values(S.kasKecil.perEntity || {})
-      .flatMap(x => x.mutasi || []);
+    kkJ = Object.values(S.kasKecil.perEntity || {}).flatMap(x => x.mutasi || []);
   } else {
     kkJ = (S.kasKecil.perEntity?.[kode]?.mutasi) || [];
   }
@@ -289,68 +252,28 @@ function labaRugiEnt(kode){
   const kotor = pend - hpp;
   return { pend, hpp, kotor, beban, bersih: kotor - beban };
 }
-const labaRugi = () => labaRugiEnt(activeEntity());
 
 function neracaEnt(kode){
   const kas = kode === 'ALL' ? totalKas() : kasOf(kode);
   const kk  = kode === 'ALL' ? totalKK()  : kkSaldo(kode);
   const piu = piutangEnt(kode);
   const hut = hutangEnt(kode);
-  const stok = sum(
-    S.barang.filter(b => kode === 'ALL' || b.lini === kode),
-    b => b.stok * (b.hargaBeli || 0)
-  );
+  const stok = sum(S.barang.filter(b => kode === 'ALL' || b.lini === kode), b => b.stok * (b.hargaBeli || 0));
   const aset = kas + kk + piu + stok;
   return { kas, kk, piu, stok, aset, liab: hut, ekuitas: aset - hut };
-}
-const neraca = () => neracaEnt(activeEntity());
-
-function statsLini(){
-  const r = {};
-  Object.keys(LINI).forEach(k =>
-    r[k] = { pend:0, hpp:0, margin:0, beli:0, jual:0, stok:0, kritis:0 });
-
-  S.penjualan.forEach(p => p.items.forEach(it => {
-    const b = brg(it.barangId); if (!b) return;
-    const l = r[b.lini]; if (!l) return;
-    l.pend += it.qty * it.harga;
-    l.hpp  += it.qty * (it.hpp || 0);
-    l.jual += it.qty;
-  }));
-  S.pembelian.forEach(p => p.items.forEach(it => {
-    const b = brg(it.barangId); if (!b) return;
-    const l = r[b.lini]; if (!l) return;
-    l.beli += it.qty * it.harga;
-  }));
-  S.barang.forEach(b => {
-    const l = r[b.lini]; if (!l) return;
-    l.stok += b.stok * (b.hargaBeli || 0);
-    if (b.stok <= (b.minStok || 5)) l.kritis++;
-  });
-  Object.keys(r).forEach(k => r[k].margin = r[k].pend - r[k].hpp);
-  return r;
 }
 
 function jurnal(){
   const J = [];
-  S.pembelian.forEach(p => J.push({ tgl:p.tgl, ref:p.no, ent:p.entity,
-    ket:'Beli barang', d:'Persediaan', k:'Kas/Hutang', j:totBuy(p) }));
+  S.pembelian.forEach(p => J.push({ tgl:p.tgl, ref:p.no, ent:p.entity, ket:'Beli barang', d:'Persediaan', k:'Kas/Hutang', j:totBuy(p) }));
   S.penjualan.forEach(p => {
-    J.push({ tgl:p.tgl, ref:p.no, ent:p.entity, ket:'Jual barang',
-      d:'Kas/Piutang', k:'Pendapatan', j:totSell(p) });
-    J.push({ tgl:p.tgl, ref:p.no, ent:p.entity, ket:'HPP terjual',
-      d:'HPP', k:'Persediaan', j:hppSell(p) });
-  });
-  (S.transfer || []).forEach(t => {
-    J.push({ tgl:t.tgl, ref:'TRF', ent:t.from,
-      ket:`Transfer ke ${t.to}`, d:`Kas ${t.to}`, k:`Kas ${t.from}`, j:t.jumlah });
+    J.push({ tgl:p.tgl, ref:p.no, ent:p.entity, ket:'Jual barang', d:'Kas/Piutang', k:'Pendapatan', j:totSell(p) });
+    J.push({ tgl:p.tgl, ref:p.no, ent:p.entity, ket:'HPP terjual', d:'HPP', k:'Persediaan', j:hppSell(p) });
   });
   Object.entries(S.kasKecil.perEntity || {}).forEach(([ent, obj]) => {
     (obj.mutasi || []).forEach(m => {
-      if (m.masuk) J.push({ tgl:m.tgl, ref:'KK-'+ent, ent,
-        ket:'Isi kas kecil', d:'Kas Kecil', k:'Kas', j:m.masuk });
-      if (m.keluar) J.push({ tgl:m.tgl, ref:'KK-'+ent, ent,
-        ket:'Kas kecil keluar', d:'Beban', k:'Kas Kecil', j:m.keluar });
+      if (m.masuk) J.push({ tgl:m.tgl, ref:'KK-'+ent, ent, ket:'Isi kas kecil', d:'Kas Kecil', k:'Kas', j:m.masuk });
+      if (m.keluar) J.push({ tgl:m.tgl, ref:'KK-'+ent, ent, ket:'Kas kecil keluar', d:'Beban', k:'Kas Kecil', j:m.keluar });
     });
   });
   return J.sort((a,b) => (b.tgl||'').localeCompare(a.tgl||''));
@@ -369,53 +292,16 @@ function stokKeluar(id, qty){
   return hpp;
 }
 
-/* ─── Aging AR / AP ─── */
-function agingOf(list, totalFn){
-  const buckets = { d0:0, d30:0, d60:0, d90p:0, total:0 };
-  const today_ = today();
-  const detail = [];
-  list.forEach(p => {
-    if (p.status === 'lunas') return;
-    const umur = daysBetween(p.tgl, today_);
-    const sisa = totalFn(p) - (p.dibayar || 0);
-    if (sisa <= 0) return;
-    const item = { no:p.no, tgl:p.tgl, umur, total:sisa,
-      pihak: p.pelanggan || p.supplier || '-', entity:p.entity };
-    if (umur <= 30)      buckets.d0  += sisa;
-    else if (umur <= 60) buckets.d30 += sisa;
-    else if (umur <= 90) buckets.d60 += sisa;
-    else                 buckets.d90p += sisa;
-    buckets.total += sisa;
-    detail.push(item);
-  });
-  return { buckets, detail: detail.sort((a,b) => b.umur - a.umur) };
-}
-function agingPiutang(kode){
-  return agingOf(
-    S.penjualan.filter(p => kode === 'ALL' || p.entity === kode),
-    totSell);
-}
-function agingHutang(kode){
-  return agingOf(
-    S.pembelian.filter(p => kode === 'ALL' || p.entity === kode),
-    totBuy);
-}
-
 /* ═══════════════════════════════════════════════════════════════
-   SYNC & STATUS
+   SYNC
    ═══════════════════════════════════════════════════════════════ */
 let busy = false;
-
-function trackSync(){
-  localStorage.last_sync = Date.now();
-}
+function trackSync(){ localStorage.last_sync = Date.now(); }
 function lastSyncText(){
   const t = localStorage.last_sync;
   if (!t) return '○ Belum tersinkron';
   const d = new Date(+t);
-  return '✓ Tersinkron — ' +
-    String(d.getHours()).padStart(2,'0') + ':' +
-    String(d.getMinutes()).padStart(2,'0');
+  return '✓ Tersinkron — ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
 
 async function flush(){
@@ -427,29 +313,21 @@ async function flush(){
       const q = getQueue();
       if (!q.length) break;
       try {
-        const res = await fetch(url, {
-          method:'POST',
-          headers:{'Content-Type':'text/plain'},
-          body: JSON.stringify(q[0])
-        });
+        const res = await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(q[0]) });
         const txt = await res.text();
         if (txt.trim() !== 'ok') break;
         const cur = getQueue(); cur.shift(); setQueue(cur);
       } catch(e){ break; }
     }
-    if (!getQueue().length && hasUrl() && getUrl() !== 'DEMO'){
-      trackSync();
-    }
+    if (!getQueue().length && hasUrl() && getUrl() !== 'DEMO') trackSync();
   } finally { busy = false; }
   updateStatus();
 }
-
 function queue(payload){
   if (!hasUrl() || getUrl() === 'DEMO') return;
   const q = getQueue(); q.push(payload);
   setQueue(q); flush();
 }
-
 async function sync(){
   if (!hasUrl()){ toast('Belum tersambung','error'); return; }
   if (getUrl() === 'DEMO'){ toast('Mode demo'); return; }
@@ -458,7 +336,6 @@ async function sync(){
   await flush(); updateStatus();
   if (!getQueue().length) toast('✓ Tersinkron');
 }
-
 function updateStatus(){
   const syEl = $('#sy');
   if (!syEl) return;
@@ -534,9 +411,7 @@ async function bootstrapSync(){
     let json; try { json = JSON.parse(txt); } catch(e){ throw new Error('invalid'); }
     if (json && json.ok && json.data){
       const d = json.data;
-      const ada = (d.barang?.length) || (d.supplier?.length) ||
-                  (d.pelanggan?.length) || (d.pembelian?.length) ||
-                  (d.penjualan?.length);
+      const ada = (d.barang?.length) || (d.supplier?.length) || (d.pelanggan?.length) || (d.pembelian?.length) || (d.penjualan?.length);
       if (ada){
         if (d.barang?.length)    S.barang     = d.barang;
         if (d.supplier)          S.supplier   = d.supplier;
@@ -551,8 +426,7 @@ async function bootstrapSync(){
         if (d.users?.length)     S.users      = d.users;
         if (d.kk?.length){
           const per = {};
-          ['HQ','SB','DR','AY','PK'].forEach(k =>
-            per[k] = { saldo: 0, mutasi: [] });
+          ['HQ','SB','DR','AY','PK'].forEach(k => per[k] = { saldo: 0, mutasi: [] });
           d.kk.forEach(m => {
             const e = m.entity || 'HQ';
             if (!per[e]) per[e] = { saldo:0, mutasi:[] };
@@ -588,49 +462,45 @@ function pushAllToSheet(){
   (S.transfer||[]).forEach(p => push('transfer', p));
   (S.permintaan||[]).forEach(p => push('permintaan', p));
   (S.pesanan||[]).forEach(p => push('pesanan', p));
-  Object.values(S.kasKecil.perEntity||{}).forEach(o =>
-    (o.mutasi||[]).forEach(m => push('kk', m)));
+  Object.values(S.kasKecil.perEntity||{}).forEach(o => (o.mutasi||[]).forEach(m => push('kk', m)));
   localStorage[K_BOOT] = '1';
   if (c) toast('⬆ Mengirim ' + c + ' data…');
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   NAVIGASI
+   NAVIGASI (SIDEBAR & BOTTOM NAV)
    ═══════════════════════════════════════════════════════════════ */
-const NAV = [
-  { id:'home',       icon:'🏠', label:'Home' },
-  { id:'dashboard',  icon:'📊', label:'Ringkasan' },
-  { id:'penerimaan', icon:'💰', label:'Terima' },
-  { id:'pembayaran', icon:'💸', label:'Bayar' },
-  { id:'penjualan',  icon:'🧾', label:'Jual' },
-];
-
-const SIDEBAR_MENU = [
-  { id:'dashboard', icon:'📊', label:'Dashboard' },
-  { section:'Transaksi' },
-  { id:'kaskecil',   icon:'👛', label:'Kas Kecil' },
-  { id:'penerimaan', icon:'💰', label:'Penerimaan Uang' },
-  { id:'pembayaran', icon:'💸', label:'Pembayaran' },
-  { id:'pembelian',  icon:'🛒', label:'Faktur Pembelian' },
-  { id:'penjualan',  icon:'🧾', label:'Faktur Penjualan' },
-  { section:'Laporan' },
-  { id:'jurnal',     icon:'📚', label:'Jurnal & Buku Besar' },
-  { section:'Master Data' },
-  { id:'barang',     icon:'📦', label:'Barang' },
-  { id:'supplier',   icon:'🏭', label:'Supplier' },
-  { id:'pelanggan',  icon:'👥', label:'Pelanggan' },
-];
-
 let view = 'home';
 
 function renderNav(){
   const nav = $('#nav'); if (!nav) return;
-  nav.innerHTML = NAV.map(n =>
-    `<button data-t="${n.id}" class="${n.id===view?'on':''}">
+  
+  let navItems = [];
+  if (activeDiv === 'HQ') {
+    navItems = [
+      { id:'home', icon:'🏠', label:'Home' },
+      { id:'dashboard', icon:'📊', label:'Pusat' },
+      { id:'barang', icon:'📦', label:'Master' }
+    ];
+  } else {
+    const d = entInfo(activeDiv);
+    navItems = [
+      { id:'back', icon:'🏢', label:'Pusat' },
+      { id:'dashboard', icon:'📊', label:'Dasbor' },
+      { id:'penjualan', icon:'🧾', label:'Jual' },
+      { id:'pembelian', icon:'🛒', label:'Beli' },
+      { id:'penerimaan', icon:'💰', label:'Kas' }
+    ];
+  }
+
+  nav.innerHTML = navItems.map(n => {
+    if (n.id === 'back') {
+      return `<button onclick="exitDiv()"><span class="ic">${n.icon}</span>${n.label}</button>`;
+    }
+    return `<button data-t="${n.id}" class="${n.id===view?'on':''}" onclick="openModule('${n.id}')">
        <span class="ic">${n.icon}</span>${n.label}
-     </button>`).join('');
-  nav.querySelectorAll('button').forEach(b =>
-    b.onclick = () => openModule(b.dataset.t));
+     </button>`;
+  }).join('');
 }
 
 function renderSidebar(){
@@ -640,33 +510,64 @@ function renderSidebar(){
   if (!u) return;
   const e = entInfo(u.entity);
 
-  const navHtml = SIDEBAR_MENU.map(item => {
-    if (item.section)
-      return `<div class="sb-section">${esc(item.section)}</div>`;
-    if (typeof canAccess === 'function' && !canAccess(item.id)) return '';
-    const on = view === item.id ? 'on' : '';
-    return `<div class="sb-item ${on}" onclick="openModule('${item.id}')">
-      <span class="sb-ic">${item.icon}</span>
-      <span class="sb-lbl">${esc(item.label)}</span>
-    </div>`;
-  }).join('');
+  let menuHtml = '';
+  if (activeDiv === 'HQ') {
+    menuHtml = `
+      <div class="sb-section">Kantor Pusat</div>
+      <div class="sb-item ${view==='home'?'on':''}" onclick="openModule('home')"><span class="sb-ic">🏠</span><span class="sb-lbl">Home</span></div>
+      <div class="sb-item ${view==='dashboard'?'on':''}" onclick="openModule('dashboard')"><span class="sb-ic">📊</span><span class="sb-lbl">Dashboard Konsolidasi</span></div>
+      <div class="sb-item ${view==='jurnal'?'on':''}" onclick="openModule('jurnal')"><span class="sb-ic">📚</span><span class="sb-lbl">Jurnal Global</span></div>
+      
+      <div class="sb-section">Master Data</div>
+      <div class="sb-item ${view==='barang'?'on':''}" onclick="openModule('barang')"><span class="sb-ic">📦</span><span class="sb-lbl">Barang</span></div>
+      <div class="sb-item ${view==='supplier'?'on':''}" onclick="openModule('supplier')"><span class="sb-ic">🏭</span><span class="sb-lbl">Supplier</span></div>
+      <div class="sb-item ${view==='pelanggan'?'on':''}" onclick="openModule('pelanggan')"><span class="sb-ic">👥</span><span class="sb-lbl">Pelanggan</span></div>
+
+      <div class="sb-section">Divisi Usaha</div>
+      ${Object.keys(LINI).map(k => {
+        const d = LINI[k];
+        return `<div class="sb-item" onclick="enterDiv('${k}')">
+          <span class="sb-ic">${d.ico}</span>
+          <span class="sb-lbl">${d.nama}</span>
+          <span class="sb-arrow">›</span>
+        </div>`;
+      }).join('')}
+    `;
+  } else {
+    const d = entInfo(activeDiv);
+    menuHtml = `
+      <div class="sb-back" onclick="exitDiv()">← Kembali ke Pusat</div>
+      <div class="sb-section" style="color:${d.warna}">${d.ico} Divisi ${d.nama}</div>
+      
+      <div class="sb-item ${view==='dashboard'?'on':''}" onclick="openModule('dashboard')"><span class="sb-ic">📊</span><span class="sb-lbl">Dashboard</span></div>
+      
+      <div class="sb-section">Transaksi</div>
+      <div class="sb-item ${view==='penjualan'?'on':''}" onclick="openModule('penjualan')"><span class="sb-ic">🧾</span><span class="sb-lbl">Faktur Jual</span></div>
+      <div class="sb-item ${view==='pembelian'?'on':''}" onclick="openModule('pembelian')"><span class="sb-ic">🛒</span><span class="sb-lbl">Faktur Beli</span></div>
+      <div class="sb-item ${view==='penerimaan'?'on':''}" onclick="openModule('penerimaan')"><span class="sb-ic">💰</span><span class="sb-lbl">Penerimaan</span></div>
+      <div class="sb-item ${view==='pembayaran'?'on':''}" onclick="openModule('pembayaran')"><span class="sb-ic">💸</span><span class="sb-lbl">Pembayaran</span></div>
+      <div class="sb-item ${view==='kaskecil'?'on':''}" onclick="openModule('kaskecil')"><span class="sb-ic">👛</span><span class="sb-lbl">Kas Kecil</span></div>
+      
+      <div class="sb-section">Laporan</div>
+      <div class="sb-item ${view==='jurnal'?'on':''}" onclick="openModule('jurnal')"><span class="sb-ic">📚</span><span class="sb-lbl">Jurnal Divisi</span></div>
+    `;
+  }
 
   el.innerHTML = `
     <div class="sb-head">
-      <div class="sb-logo">🌱</div>
+      <div class="sb-logo" style="background:${activeDiv==='HQ'?'#2d5016':entInfo(activeDiv).warna}">
+        ${activeDiv==='HQ'?'🌱':entInfo(activeDiv).ico}
+      </div>
       <div class="sb-title">
-        <b>IMB</b>
+        <b>${activeDiv==='HQ'?'IMB Pusat':entInfo(activeDiv).nama}</b>
         <span>PT. Insan Muda Berdikari</span>
       </div>
     </div>
-    <div class="sb-nav">${navHtml}</div>
+    <div class="sb-nav">${menuHtml}</div>
     <div class="sb-foot">
       <div class="sb-user">
         <div class="sb-user-ico">${e.ico}</div>
-        <div class="sb-user-info">
-          <b>${esc(u.nama)}</b>
-          <span>${u.role.toUpperCase()} · ${esc(e.nama)}</span>
-        </div>
+        <div class="sb-user-info"><b>${esc(u.nama)}</b><span>${u.role.toUpperCase()}</span></div>
         <button class="sb-logout" onclick="logout()">Keluar</button>
       </div>
     </div>`;
@@ -678,7 +579,7 @@ function openModule(id){
   if (!canAccess(id)){ toast('Akses ditolak','error'); return; }
   view = id;
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + id));
-  $$('nav button').forEach(b => b.classList.toggle('on', b.dataset.t === id));
+  renderNav();
   renderSidebar();
   window.scrollTo({top:0});
   refreshView(id);
@@ -695,76 +596,112 @@ function refreshView(id){
     penjualan: () => typeof renderPenjualan === 'function' && renderPenjualan(),
     pembayaran:() => typeof renderPembayaran === 'function' && renderPembayaran(),
     penerimaan:() => typeof renderPenerimaan === 'function' && renderPenerimaan(),
-    transfer:  () => typeof renderTransfer === 'function' && renderTransfer(),
     kaskecil:  () => typeof renderKasKecil === 'function' && renderKasKecil(),
-    permintaan:() => typeof renderPermintaan === 'function' && renderPermintaan(),
-    pesanan:   () => typeof renderPesanan === 'function' && renderPesanan(),
-    stok:      () => typeof renderStok === 'function' && renderStok(),
     jurnal:    () => typeof renderJurnal === 'function' && renderJurnal(),
-    aging:     () => typeof renderAging === 'function' && renderAging(),
   };
   if (map[id]) map[id]();
 }
 
 function refreshAll(){
   Object.keys({
-    home:1, dashboard:1, barang:1, supplier:1, pelanggan:1,
-    pembelian:1, penjualan:1, pembayaran:1, penerimaan:1,
-    transfer:1, kaskecil:1, permintaan:1, pesanan:1,
-    stok:1, jurnal:1, aging:1,
+    home:1, dashboard:1, barang:1, supplier:1, pelanggan:1, pembelian:1, penjualan:1, pembayaran:1, penerimaan:1, kaskecil:1, jurnal:1
   }).forEach(refreshView);
   updateStatus();
-  if (typeof renderEntitySwitcher === 'function') renderEntitySwitcher();
-  if (typeof renderSidebar === 'function') renderSidebar();
+  renderSidebar();
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ENTITY SWITCHER
-   ═══════════════════════════════════════════════════════════════ */
-function renderEntitySwitcher(){
-  const u = typeof currentUser === 'function' ? currentUser() : null;
-  if (!u) return;
-  let bar = document.getElementById('ent-bar');
-  if (!bar){
-    bar = document.createElement('div');
-    bar.id = 'ent-bar';
-    const header = document.querySelector('header');
-    if (header && header.parentNode)
-      header.parentNode.insertBefore(bar, header.nextSibling);
-  }
-  if (u.role !== 'owner'){
-    bar.style.display = 'none';
-    return;
-  }
-  bar.style.display = 'flex';
-  const cur = activeEntity();
-  bar.innerHTML = ['ALL', ...Object.keys(ENTITIES)].map(k => {
-    const e = k === 'ALL' ? { ico:'🌐', nama:'Semua' } : entInfo(k);
-    return `<button class="ent-pill ${cur===k?'on':''}"
-      onclick="setActiveEntity('${k}')">${e.ico} ${k==='ALL'?'Semua':k}</button>`;
-  }).join('');
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   HOME
-   ═══════════════════════════════════════════════════════════════ */
 function renderHome(){
   const u = currentUser(); if (!u) return;
   const e = entInfo(u.entity);
+  
+  // Sembunyikan header user-card di mode mobile, karena info ada di sidebar
   const ico = document.getElementById('uc-ico');
   const nm  = document.getElementById('uc-nama');
   const inf = document.getElementById('uc-info');
   if (ico) ico.textContent = e.ico;
   if (nm)  nm.textContent  = u.nama;
   if (inf) inf.textContent = `${u.role.toUpperCase()} · ${e.nama}`;
+
+  // Render kartu divisi di home
+  const divGrid = document.getElementById('home-div-grid');
+  if (divGrid) {
+    divGrid.innerHTML = Object.keys(LINI).map(k => {
+      const d = LINI[k];
+      return `<div class="div-card" onclick="enterDiv('${k}')" style="border-top: 4px solid ${d.warna}">
+        <div class="div-card-ico">${d.ico}</div>
+        <div class="div-card-name">${d.nama}</div>
+        <div class="div-card-sub">Masuk ke Divisi →</div>
+      </div>`;
+    }).join('');
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   WELCOME / CONNECT
+   LOGIN / WELCOME
    ═══════════════════════════════════════════════════════════════ */
-function renderWelcome(){
-  renderLogin();
+function renderLogin(){
+  const w = document.getElementById('welcome');
+  const m = document.getElementById('m');
+  const nav = document.getElementById('nav');
+  const sb = document.getElementById('sidebar');
+  const hb = document.getElementById('hdr-btns');
+  if (!w) return;
+  
+  if (m) m.style.display = 'none';
+  if (nav) nav.style.display = 'none';
+  if (sb) sb.style.display = 'none';
+  if (hb) hb.style.display = 'none';
+  w.style.display = 'block';
+
+  const users = S.users || [];
+  if (!users.length){
+    w.innerHTML = `<div class="card welcome">
+      <div class="ico">⚠️</div><h2>Belum ada user</h2><p>Hubungi admin.</p>
+    </div>`;
+    return;
+  }
+
+  w.innerHTML = `<div class="card welcome" style="text-align:left; padding: 40px 22px">
+    <div style="text-align:center; margin-bottom: 28px;">
+      <div class="ico" style="font-size:64px; margin-bottom:14px; filter:drop-shadow(0 4px 10px rgba(45,80,22,.2))">🌱</div>
+      <h2 style="margin:0 0 8px; color:var(--green); font-size:24px; font-family:Fraunces; font-weight:600">Selamat Datang di IMB</h2>
+      <p style="color:var(--mute); font-size:13.5px; margin:0; line-height:1.6">
+        PT. Insan Muda Berdikari<br>Sistem manajemen terpadu<br>
+        🍓 Stroberi · 🥛 Dairy · 🐔 Ayam · 🌾 Pakan Ayam
+      </p>
+    </div>
+    <label>Pilih Akun</label>
+    <select id="login-user" style="margin-bottom: 12px;">
+      ${users.map(u => {
+        const e = entInfo(u.entity);
+        return `<option value="${u.id}">${e.ico} ${esc(u.nama)} (${e.kode})</option>`;
+      }).join('')}
+    </select>
+    <label>PIN</label>
+    <input id="login-pin" type="password" inputmode="numeric" maxlength="6" placeholder="••••" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn btn-p" style="width:100%; margin-top:20px" onclick="doLogin()">Masuk</button>
+  </div>`;
 }
+
+function doLogin(){
+  const uid_ = document.getElementById('login-user').value;
+  const pin  = document.getElementById('login-pin').value;
+  const r = login(uid_, pin);
+  if (!r.ok){ toast(r.msg, 'error'); return; }
+  
+  // Set activeDiv berdasarkan role user
+  if (r.user.role !== 'owner') {
+    activeDiv = r.user.entity;
+  } else {
+    activeDiv = 'HQ';
+  }
+  localStorage[K_ACTIVE_DIV] = activeDiv;
+
+  toast(`Halo, ${r.user.nama}`);
+  setTimeout(() => location.reload(), 500);
+}
+
+function renderWelcome(){ renderLogin(); }
 
 function hideWelcome(){
   const w = document.getElementById('welcome');
@@ -779,184 +716,8 @@ function hideWelcome(){
   if (hb) hb.style.display = 'flex';
 }
 
-function connect(){
-  localStorage[K_URL] = DEFAULT_URL;
-  toast('Menyambungkan…');
-  boot();
-  setTimeout(() => bootstrapSync(), 600);
-}
-
-function cfg(){
-  const cur = localStorage[K_URL] || '';
-  const v = prompt('URL Web App (…/exec):', cur === 'DEMO' ? '' : cur);
-  if (v === null) return;
-  if (!v.trim()){ delete localStorage[K_URL]; toast('Reset'); boot(); return; }
-  localStorage[K_URL] = v.trim();
-  toast('Diperbarui'); boot();
-}
-
 /* ═══════════════════════════════════════════════════════════════
-   MODAL
-   ═══════════════════════════════════════════════════════════════ */
-let modalOk = null;
-function openModal(title, sub, body, onOk, okLabel){
-  const m = $('#modal');
-  $('#mc').innerHTML = `
-    <div class="mhead">
-      <div><h3>${esc(title)}</h3>${sub?`<div class="msub">${esc(sub)}</div>`:''}</div>
-      <button class="mx" onclick="closeModal()">×</button>
-    </div>
-    ${body}
-    <div class="mfoot">
-      <button class="btn btn-s" onclick="closeModal()">Batal</button>
-      <button class="btn btn-p" id="mOk">${esc(okLabel || 'Simpan')}</button>
-    </div>`;
-  modalOk = onOk;
-  $('#mOk').onclick = () => { if (modalOk) modalOk(); };
-  m.classList.add('show');
-}
-function closeModal(){ $('#modal').classList.remove('show'); modalOk = null; }
-document.addEventListener('DOMContentLoaded', () => {
-  const md = $('#modal');
-  if (md) md.onclick = e => { if (e.target.id === 'modal') closeModal(); };
-});
-
-/* ═══════════════════════════════════════════════════════════════
-   ITEM ROW
-   ═══════════════════════════════════════════════════════════════ */
-function optBarang(filter, selectedKode){
-  return S.barang
-    .filter(b => !filter || (Array.isArray(filter) ? filter.includes(b.lini) : b.tipe === filter))
-    .map(b => `<option value="${b.id}" ${b.kode === selectedKode ? 'selected' : ''}>${esc(b.kode)} · ${esc(b.nama)}</option>`)
-    .join('');
-}
-function itemRow(prefix, filter, selectedKode){
-  return `<div class="irow">
-    <select class="${prefix}-brg">${optBarang(filter, selectedKode)}</select>
-    <input class="${prefix}-qty" type="number" min="1" value="1">
-    <input class="${prefix}-hrg" type="number" min="0" value="0">
-    <button class="x2" onclick="this.parentNode.remove()">✕</button>
-  </div>`;
-}
-function addRow(cid, prefix, filter){
-  const el = document.getElementById(cid);
-  if (el) el.insertAdjacentHTML('beforeend', itemRow(prefix, filter));
-}
-function readRows(prefix){
-  return [...document.querySelectorAll('.irow')]
-    .filter(r => r.querySelector('.' + prefix + '-brg'))
-    .map(r => ({
-      barangId: r.querySelector('.' + prefix + '-brg').value,
-      qty: +r.querySelector('.' + prefix + '-qty').value || 0,
-      harga: +r.querySelector('.' + prefix + '-hrg').value || 0,
-    })).filter(x => x.barangId && x.qty > 0);
-}
-document.addEventListener('change', e => {
-  if (e.target.matches('select[class$="-brg"]')){
-    const row = e.target.closest('.irow');
-    const b = brg(e.target.value); if (!b) return;
-    const hrg = row.querySelector('input[class$="-hrg"]');
-    const prefix = e.target.className.replace('-brg','');
-    if (hrg && (!+hrg.value || hrg.dataset.auto === '1')){
-      hrg.value = prefix.startsWith('o') || prefix.startsWith('j')
-        ? (b.hargaJual || b.hargaBeli) : b.hargaBeli;
-      hrg.dataset.auto = '1';
-    }
-  }
-});
-
-/* ═══════════════════════════════════════════════════════════════
-   AUTO-UPDATE
-   ═══════════════════════════════════════════════════════════════ */
-async function checkUpdate(silent){
-  try {
-    const r = await fetch('./version.json?t=' + Date.now(), { cache:'no-store' });
-    const j = await r.json();
-    const today = new Date().toISOString().slice(0,10);
-
-    const el = document.getElementById('app-version');
-    if (el) el.textContent = `v${j.v} · ${today}`;
-
-    const seen = localStorage.app_v;
-    if (!seen){ localStorage.app_v = String(j.v); return 'first'; }
-    if (String(j.v) !== String(seen)){
-      const btn = document.getElementById('btn-update');
-      const ver = document.getElementById('update-ver');
-      if (btn) btn.style.display = 'flex';
-      if (ver) ver.textContent = 'v' + j.v;
-      return String(j.v);
-    }
-    if (!silent) toast('✓ Sudah versi terbaru');
-    return 'latest';
-  } catch(e){
-    if (!silent) toast('Gagal cek update', 'error');
-    return 'error';
-  }
-}
-
-async function hardReset(){
-  try {
-    if ('serviceWorker' in navigator){
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const reg of regs) await reg.unregister();
-    }
-    if ('caches' in window){
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k)));
-    }
-  } catch(e){}
-  location.replace(location.pathname + '?fresh=' + Date.now());
-}
-
-async function manualUpdate(){
-  toast('Memeriksa update…');
-  const r = await checkUpdate(true);
-  if (r === 'error'){ toast('Gagal cek, periksa koneksi', 'error'); return; }
-  if (r === 'first' || r === 'latest'){ toast('✓ Sudah versi terbaru'); return; }
-  toast('🔄 Versi baru v' + r + ' · memuat ulang…');
-  setTimeout(hardReset, 800);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   INSTALL PROMPT
-   ═══════════════════════════════════════════════════════════════ */
-let installPrompt = null;
-function showInstall(text, fn){
-  if ($('#ib')) return;
-  const b = document.createElement('button');
-  b.id = 'ib';
-  b.innerHTML = text + ' <span style="margin-left:8px;opacity:.7">✕</span>';
-  b.style.cssText = `position:fixed;bottom:calc(86px + env(safe-area-inset-bottom));
-    left:50%;transform:translateX(-50%);background:#2d5016;color:#fff;
-    padding:12px 22px;border:0;border-radius:30px;font:600 14px Figtree;
-    box-shadow:0 4px 12px rgba(0,0,0,.25);z-index:9999;white-space:nowrap;
-    font-family:inherit;cursor:pointer;`;
-  b.onclick = ev => {
-    if (ev.target.tagName === 'SPAN'){ b.remove(); return; }
-    fn();
-  };
-  document.body.appendChild(b);
-}
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  installPrompt = e;
-  showInstall('⬇ Install Aplikasi', async () => {
-    installPrompt.prompt();
-    await installPrompt.userChoice;
-    installPrompt = null;
-    $('#ib')?.remove();
-  });
-});
-window.addEventListener('appinstalled', () => $('#ib')?.remove());
-if (/iphone|ipad|ipod/i.test(navigator.userAgent) &&
-    !(matchMedia('(display-mode: standalone)').matches || navigator.standalone)){
-  window.addEventListener('load', () => showInstall('⬇ Cara pasang di iPhone', () => {
-    alert('Buka lewat Safari → Bagikan → "Tambah ke Layar Utama".');
-  }));
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   EVENT LISTENERS
+   EVENT LISTENERS & BOOT
    ═══════════════════════════════════════════════════════════════ */
 window.addEventListener('online', () => { updateStatus(); toast('Online'); flush(); });
 window.addEventListener('offline', () => { updateStatus(); toast('Offline','error'); });
@@ -964,34 +725,33 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden){ flush(); checkUpdate(true); }
 });
 
-const _api = new URLSearchParams(location.search).get('api');
-if (_api){ localStorage[K_URL] = _api; history.replaceState(null,'',location.pathname); }
-if (new URLSearchParams(location.search).get('fresh'))
-  history.replaceState(null,'',location.pathname);
-
-/* ═══════════════════════════════════════════════════════════════
-   BOOT
-   ═══════════════════════════════════════════════════════════════ */
 function boot(){
-  if (!hasUrl()){
-    localStorage[K_URL] = DEFAULT_URL;
-  }
+  if (!hasUrl()){ localStorage[K_URL] = DEFAULT_URL; }
 
   if (!isLoggedIn()){
     renderLogin();
     return;
   }
 
+  // Pastikan activeDiv valid
+  const u = currentUser();
+  if (u.role !== 'owner') {
+    activeDiv = u.entity;
+  } else if (!localStorage[K_ACTIVE_DIV]) {
+    activeDiv = 'HQ';
+  }
+
   hideWelcome();
   renderNav();
   renderSidebar();
   updateStatus();
-  renderEntitySwitcher();
+  
   $$('.view').forEach(v => {
     const id = v.id.replace('v-','');
     if (!canAccess(id)) v.style.display = 'none';
   });
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + view));
+  
   refreshAll();
   if (typeof refreshUpdateBadge === 'function') refreshUpdateBadge();
 }

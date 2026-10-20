@@ -404,33 +404,29 @@ async function refreshUpdateBadge(){
   if (!latest) return;
   
   const btn = document.getElementById('btn-update');
-  const ver = document.getElementById('update-ver');
-  
-  if (cur && String(cur) !== String(latest)){
+  if (!btn) return;
+
+  // Jika belum punya versi lokal, simpan diam-diam
+  if (!cur) {
+    localStorage.app_v = String(latest);
+    btn.style.display = 'none';
+    return;
+  }
+
+  if (String(cur) !== String(latest)){
     // Ada update
-    if (btn) {
-      btn.style.display = 'flex';
-      btn.style.background = 'linear-gradient(135deg,#facc15,#eab308)'; // kuning
-      btn.style.color = '#713f12';
-      btn.style.cursor = 'pointer';
-      btn.innerHTML = `<span class="hdr-badge">NEW</span><span id="update-ver">v${latest}</span>`;
-      btn.onclick = () => {
-        if (confirm('Versi baru tersedia. Muat ulang aplikasi sekarang?')) {
-          localStorage.app_v = String(latest);
-          location.reload();
-        }
-      };
-    }
+    btn.style.display = 'flex';
+    btn.style.background = '#2563eb'; // Biru
+    btn.style.color = '#fff';
+    btn.style.border = '1px solid #1e40af';
+    btn.innerHTML = `⬇ Update`;
+    btn.onclick = () => {
+      localStorage.app_v = String(latest);
+      window.location.reload(true);
+    };
   } else {
     // Versi terbaru
-    if (btn) {
-      btn.style.display = 'flex';
-      btn.style.background = 'rgba(255,255,255,0.15)'; // transparan pudar
-      btn.style.color = 'rgba(255,255,255,0.8)';
-      btn.style.cursor = 'default';
-      btn.innerHTML = `✓ v${latest}`;
-      btn.onclick = null;
-    }
+    btn.style.display = 'none';
   }
 }
 

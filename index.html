@@ -17,7 +17,6 @@
 <style>
   @keyframes spin { 100% { transform: rotate(360deg); } }
 </style>
-<!-- TAMBAHAN: Library Chart.js untuk Grafik Dashboard -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -36,9 +35,12 @@
 
 <!-- Button bar -->
 <div class="hdr-btns" id="hdr-btns">
-  <button class="hdr-btn hdr-btn-update" id="btn-update" style="display:none" onclick="doUpdate()">
-    ⬇ Update
+  <!-- Tombol update selalu muncul -->
+  <button class="hdr-btn" id="btn-update" onclick="handleUpdateClick()" 
+          style="background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.8); cursor:wait">
+    ⏳ Memeriksa...
   </button>
+  
   <button class="hdr-btn hdr-btn-sync" id="btn-sync" onclick="sync()">↑ Sync</button>
   <button class="hdr-btn hdr-btn-pull" onclick="pullFromSheet()">↓ Muat</button>
   <button class="hdr-btn hdr-btn-disc" onclick="disconnect()">Putuskan</button>

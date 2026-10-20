@@ -2,10 +2,19 @@
    DASHBOARD EKSEKUTIF (Chart.js)
    ═══════════════════════════════════════════════════════════════ */
 
-// Variabel global untuk menyimpan instance Chart agar tidak tumpang tindih
 let chartOmzetInst = null;
 let chartLabaInst = null;
 let chartBiayaInst = null;
+
+/* Helper Format Angka Sumbu Y Chart (Juta / Ribu) */
+function formatRpShort(v) {
+  if (!v || v === 0) return '0';
+  const abs = Math.abs(v);
+  if (abs >= 1000000000) return 'Rp ' + (v / 1000000000).toFixed(1).replace('.0', '') + ' M';
+  if (abs >= 1000000) return 'Rp ' + (v / 1000000).toFixed(1).replace('.0', '') + ' Jt';
+  if (abs >= 1000) return 'Rp ' + (v / 1000).toFixed(1).replace('.0', '') + ' Rb';
+  return 'Rp ' + v;
+}
 
 function renderDashboard(){
   try {
@@ -84,7 +93,6 @@ function _renderDashboard(){
   renderChartLaba(months, labaData);
 
   // --- 5. CHART 3: Komposisi Biaya (Donut Chart) ---
-  // HPP (Pembelian) vs Beban (Kas Kecil)
   let totalBahan = 0;
   let totalOperasional = 0;
   S.pembelian.forEach(p => { if(ent === 'ALL' || p.entity === ent) totalBahan += totBuy(p); });
@@ -173,7 +181,7 @@ function renderChartOmzet(data){
     data: {
       labels: ['🍓 Stroberi', '🥛 Dairy', '🐔 Ayam', '🌾 Pakan'],
       datasets: [{
-        label: 'Omzet (Rp)',
+        label: 'Omzet',
         data: [data.SB, data.DR, data.AY, data.PK],
         backgroundColor: ['#dc2626', '#2563eb', '#b45309', '#16a34a'],
         borderRadius: 6
@@ -182,7 +190,12 @@ function renderChartOmzet(data){
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, ticks: { callback: v => 'Rp ' + (v/1000000) + 'M' } } }
+      scales: { 
+        y: { 
+          beginAtZero: true, 
+          ticks: { callback: v => formatRpShort(v) } 
+        } 
+      }
     }
   });
 }
@@ -210,7 +223,12 @@ function renderChartLaba(labels, data){
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, ticks: { callback: v => 'Rp ' + (v/1000000) + 'M' } } }
+      scales: { 
+        y: { 
+          beginAtZero: true, 
+          ticks: { callback: v => formatRpShort(v) } 
+        } 
+      }
     }
   });
 }
@@ -220,7 +238,6 @@ function renderChartBiaya(bahan, operasional){
   if (!ctx) return;
   if (chartBiayaInst) chartBiayaInst.destroy();
 
-  // Jika kosong, beri nilai default agar chart tidak error
   if (bahan === 0 && operasional === 0) bahan = 1; 
 
   chartBiayaInst = new Chart(ctx, {

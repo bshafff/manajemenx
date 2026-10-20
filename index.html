@@ -14,6 +14,9 @@
 <title>IMB · Manajemen</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<style>
+  @keyframes spin { 100% { transform: rotate(360deg); } }
+</style>
 </head>
 <body>
 
@@ -29,11 +32,12 @@
 
 <div id="st"></div>
 
+<!-- Button bar -->
 <div class="hdr-btns" id="hdr-btns">
-  <button class="hdr-btn hdr-btn-update" id="btn-update" style="display:none" onclick="manualUpdate()">
+  <button class="hdr-btn" id="btn-update" style="display:none" onclick="doUpdate()">
     <span class="hdr-badge">NEW</span><span id="update-ver">v?</span>
   </button>
-  <button class="hdr-btn hdr-btn-sync" onclick="sync()">↑ Sync</button>
+  <button class="hdr-btn hdr-btn-sync" id="btn-sync" onclick="sync()">↑ Sync</button>
   <button class="hdr-btn hdr-btn-pull" onclick="pullFromSheet()">↓ Muat</button>
   <button class="hdr-btn hdr-btn-disc" onclick="disconnect()">Putuskan</button>
 </div>

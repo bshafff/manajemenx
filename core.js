@@ -203,6 +203,7 @@ function entityFilter(x){
   return x.entity === a;
 }
 
+/* Kas */
 function kasOf(k){ return (S.entities[k] && S.entities[k].kas) || 0; }
 function addKas(k, d){
   if (!S.entities[k]) S.entities[k] = { kas: 0 };
@@ -212,6 +213,7 @@ function totalKas(){
   return Object.keys(ENTITIES).reduce((s,k) => s + kasOf(k), 0);
 }
 
+/* Kas kecil */
 function kkOf(k){
   if (!S.kasKecil.perEntity) S.kasKecil.perEntity = {};
   if (!S.kasKecil.perEntity[k]) S.kasKecil.perEntity[k] = { saldo:0, mutasi:[] };
@@ -298,7 +300,7 @@ function stokKeluar(id, qty){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SYNC
+   SYNC & STATUS
    ═══════════════════════════════════════════════════════════════ */
 let busy = false;
 function trackSync(){ localStorage.last_sync = Date.now(); }
@@ -313,6 +315,8 @@ async function flush(){
   const url = getUrl();
   if (!url || url === 'DEMO' || busy || !navigator.onLine) return;
   busy = true;
+  updateStatus(); // Langsung berubah jadi indikator loading
+  
   try {
     while (true){
       const q = getQueue();
@@ -322,17 +326,22 @@ async function flush(){
         const txt = await res.text();
         if (txt.trim() !== 'ok') break;
         const cur = getQueue(); cur.shift(); setQueue(cur);
+        updateStatus(); // Update UI setiap kali 1 data berhasil (9 -> 8 -> 7)
       } catch(e){ break; }
     }
     if (!getQueue().length && hasUrl() && getUrl() !== 'DEMO') trackSync();
-  } finally { busy = false; }
-  updateStatus();
+  } finally { 
+    busy = false; 
+    updateStatus(); 
+  }
 }
+
 function queue(payload){
   if (!hasUrl() || getUrl() === 'DEMO') return;
   const q = getQueue(); q.push(payload);
   setQueue(q); flush();
 }
+
 async function sync(){
   if (!hasUrl()){ toast('Belum tersambung','error'); return; }
   if (getUrl() === 'DEMO'){ toast('Mode demo'); return; }
@@ -341,10 +350,17 @@ async function sync(){
   await flush(); updateStatus();
   if (!getQueue().length) toast('✓ Tersinkron');
 }
+
 function updateStatus(){
   const syEl = $('#sy');
+  const btnSync = $('#btn-sync');
   if (!syEl) return;
-  if (!hasUrl()){ syEl.textContent = '○ Belum tersambung'; return; }
+  
+  if (!hasUrl()){ 
+    syEl.textContent = '○ Belum tersambung'; 
+    if (btnSync) btnSync.innerHTML = '↑ Sync';
+    return; 
+  }
 
   const isDemo = getUrl() === 'DEMO';
   const n = getQueue().length;
@@ -352,22 +368,32 @@ function updateStatus(){
 
   if (isDemo){
     syEl.textContent = '🎬 Mode demo';
+    if (btnSync) btnSync.innerHTML = '↑ Sync';
   } else if (!online){
     syEl.textContent = '🔴 Offline · lokal';
+    if (btnSync) btnSync.innerHTML = '↑ Sync';
+  } else if (busy) {
+    syEl.textContent = `⏳ Menyingkronkan ${n > 0 ? n + ' data' : ''}...`;
+    if (btnSync) btnSync.innerHTML = `<span style="display:inline-block; animation:spin 1s linear infinite">↻</span> Sync`;
   } else if (n > 0){
     syEl.textContent = `⏳ ${n} perubahan menunggu sync`;
+    if (btnSync) btnSync.innerHTML = '↑ Sync';
   } else {
     syEl.textContent = lastSyncText();
+    if (btnSync) btnSync.innerHTML = '↑ Sync';
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   VERSION & UPDATE
+   ═══════════════════════════════════════════════════════════════ */
 async function loadVersionDisplay(){
   try {
     const r = await fetch('./version.json?t=' + Date.now(), { cache:'no-store' });
     const j = await r.json();
-    const today = new Date().toISOString().slice(0,10);
+    const todayStr = new Date().toISOString().slice(0,10);
     const el = document.getElementById('app-version');
-    if (el) el.textContent = `v${j.v} · ${today}`;
+    if (el) el.textContent = `v${j.v} · ${todayStr}`;
     return j.v;
   } catch(e){ return null; }
 }
@@ -376,31 +402,53 @@ async function refreshUpdateBadge(){
   const cur = localStorage.app_v;
   const latest = await loadVersionDisplay();
   if (!latest) return;
+  
   const btn = document.getElementById('btn-update');
   const ver = document.getElementById('update-ver');
+  
   if (cur && String(cur) !== String(latest)){
-    if (btn) btn.style.display = 'flex';
-    if (ver) ver.textContent = 'v' + latest;
+    // Ada update
+    if (btn) {
+      btn.style.display = 'flex';
+      btn.style.background = 'linear-gradient(135deg,#facc15,#eab308)'; // kuning
+      btn.style.color = '#713f12';
+      btn.style.cursor = 'pointer';
+      btn.innerHTML = `<span class="hdr-badge">NEW</span><span id="update-ver">v${latest}</span>`;
+      btn.onclick = () => {
+        if (confirm('Versi baru tersedia. Muat ulang aplikasi sekarang?')) {
+          localStorage.app_v = String(latest);
+          location.reload();
+        }
+      };
+    }
   } else {
-    if (btn) btn.style.display = 'none';
+    // Versi terbaru
+    if (btn) {
+      btn.style.display = 'flex';
+      btn.style.background = 'rgba(255,255,255,0.15)'; // transparan pudar
+      btn.style.color = 'rgba(255,255,255,0.8)';
+      btn.style.cursor = 'default';
+      btn.innerHTML = `✓ v${latest}`;
+      btn.onclick = null;
+    }
   }
 }
 
-function disconnect(){
-  if (!confirm('Putuskan koneksi ke Google Sheet?\nData lokal tetap tersimpan.')) return;
-  delete localStorage[K_URL];
-  toast('Koneksi diputuskan');
-  setTimeout(() => location.reload(), 500);
-}
-
-async function pullFromSheet(){
-  if (!hasUrl()){ toast('Belum tersambung','error'); return; }
-  if (getUrl() === 'DEMO'){ toast('Mode demo'); return; }
-  if (!navigator.onLine){ toast('Sedang offline','error'); return; }
-  toast('Memuat dari Sheet…');
-  await bootstrapSync();
-  trackSync();
-  updateStatus();
+async function checkUpdate(silent){
+  try {
+    const r = await fetch('./version.json?t=' + Date.now(), { cache:'no-store' });
+    const j = await r.json();
+    const seen = localStorage.app_v;
+    if (!seen){ localStorage.app_v = String(j.v); return 'first'; }
+    if (String(j.v) !== String(seen)){
+      return String(j.v);
+    }
+    if (!silent) toast('✓ Sudah versi terbaru');
+    return 'latest';
+  } catch(e){
+    if (!silent) toast('Gagal cek update', 'error');
+    return 'error';
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -470,6 +518,23 @@ function pushAllToSheet(){
   Object.values(S.kasKecil.perEntity||{}).forEach(o => (o.mutasi||[]).forEach(m => push('kk', m)));
   localStorage[K_BOOT] = '1';
   if (c) toast('⬆ Mengirim ' + c + ' data…');
+}
+
+function disconnect(){
+  if (!confirm('Putuskan koneksi ke Google Sheet?\nData lokal tetap tersimpan.')) return;
+  delete localStorage[K_URL];
+  toast('Koneksi diputuskan');
+  setTimeout(() => location.reload(), 500);
+}
+
+async function pullFromSheet(){
+  if (!hasUrl()){ toast('Belum tersambung','error'); return; }
+  if (getUrl() === 'DEMO'){ toast('Mode demo'); return; }
+  if (!navigator.onLine){ toast('Sedang offline','error'); return; }
+  toast('Memuat dari Sheet…');
+  await bootstrapSync();
+  trackSync();
+  updateStatus();
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -615,7 +680,7 @@ function refreshAll(){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   HOME
+   HOME & LOGIN
    ═══════════════════════════════════════════════════════════════ */
 function renderHome(){
   const u = currentUser(); if (!u) return;
@@ -641,9 +706,6 @@ function renderHome(){
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   LOGIN / WELCOME
-   ═══════════════════════════════════════════════════════════════ */
 function renderLogin(){
   const w = document.getElementById('welcome');
   const m = document.getElementById('m');
@@ -787,55 +849,6 @@ document.addEventListener('change', e => {
   }
 });
 
-async function checkUpdate(silent){
-  try {
-    const r = await fetch('./version.json?t=' + Date.now(), { cache:'no-store' });
-    const j = await r.json();
-    const today = new Date().toISOString().slice(0,10);
-
-    const el = document.getElementById('app-version');
-    if (el) el.textContent = `v${j.v} · ${today}`;
-
-    const seen = localStorage.app_v;
-    if (!seen){ localStorage.app_v = String(j.v); return 'first'; }
-    if (String(j.v) !== String(seen)){
-      const btn = document.getElementById('btn-update');
-      const ver = document.getElementById('update-ver');
-      if (btn) btn.style.display = 'flex';
-      if (ver) ver.textContent = 'v' + j.v;
-      return String(j.v);
-    }
-    if (!silent) toast('✓ Sudah versi terbaru');
-    return 'latest';
-  } catch(e){
-    if (!silent) toast('Gagal cek update', 'error');
-    return 'error';
-  }
-}
-
-async function hardReset(){
-  try {
-    if ('serviceWorker' in navigator){
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const reg of regs) await reg.unregister();
-    }
-    if ('caches' in window){
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k)));
-    }
-  } catch(e){}
-  location.replace(location.pathname + '?fresh=' + Date.now());
-}
-
-async function manualUpdate(){
-  toast('Memeriksa update…');
-  const r = await checkUpdate(true);
-  if (r === 'error'){ toast('Gagal cek, periksa koneksi', 'error'); return; }
-  if (r === 'first' || r === 'latest'){ toast('✓ Sudah versi terbaru'); return; }
-  toast('🔄 Versi baru v' + r + ' · memuat ulang…');
-  setTimeout(hardReset, 800);
-}
-
 let installPrompt = null;
 function showInstall(text, fn){
   if ($('#ib')) return;
@@ -874,7 +887,7 @@ if (/iphone|ipad|ipod/i.test(navigator.userAgent) &&
 window.addEventListener('online', () => { updateStatus(); toast('Online'); flush(); });
 window.addEventListener('offline', () => { updateStatus(); toast('Offline','error'); });
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden){ flush(); checkUpdate(true); }
+  if (!document.hidden){ flush(); checkUpdate(true); refreshUpdateBadge(); }
 });
 
 const _api = new URLSearchParams(location.search).get('api');
@@ -909,6 +922,9 @@ function boot(){
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + view));
   
   refreshAll();
-  if (typeof refreshUpdateBadge === 'function') refreshUpdateBadge();
+  
+  // Panggil cek versi
+  loadVersionDisplay().then(() => refreshUpdateBadge());
+  checkUpdate(true);
 }
 window.bootApp = boot;

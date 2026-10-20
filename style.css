@@ -11,7 +11,9 @@ body{
 }
 h1,h2,.num{font-family:Fraunces,Georgia,serif;font-weight:600;letter-spacing:-.3px}
 
-/* HEADER & TOMBOL */
+/* ═══════════════════════════════════════════════════════════════
+   1. HEADER & TOMBOL
+   ═══════════════════════════════════════════════════════════════ */
 header{
   background:linear-gradient(135deg,#2d5016 0%,#5a8f3a 100%);
   color:#fff;padding:calc(22px + env(safe-area-inset-top)) 16px 22px;
@@ -41,11 +43,14 @@ header h1{ margin:0;font-family:Fraunces,Georgia,serif; font-size:22px;font-weig
 .hdr-btn-disc{background:#fecaca;color:#991b1b;}
 .hdr-btn-disc:hover{background:#fca5a5;}
 
-/* LAYOUT MOBILE */
-main{padding:14px;max-width:640px;margin:auto; width:100%;}
-.view{display:none; width:100%;}
+/* ═══════════════════════════════════════════════════════════════
+   2. LAYOUT MOBILE
+   ═══════════════════════════════════════════════════════════════ */
+main{padding:14px;max-width:640px;margin:auto;width:100%;}
+.view{display:none;width:100%;}
 .view.active{display:block}
 #sidebar{display:none}
+
 nav{
   position:fixed;bottom:0;left:0;right:0;display:flex;background:#fff;
   border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);
@@ -60,37 +65,41 @@ nav button .ic{font-size:18px;line-height:1}
 nav button.on{color:var(--green);box-shadow:inset 0 3px var(--green)}
 
 /* ═══════════════════════════════════════════════════════════════
-   LAYOUT DESKTOP (≥ 900px) - DIPERBESAR
+   3. LAYOUT DESKTOP (≥ 900px)
    ═══════════════════════════════════════════════════════════════ */
 @media (min-width:900px){
   body{
     padding-left:260px;padding-bottom:0;background:#f3f5f2;
-    font-size:16px; /* Font dasar lebih besar */
+    font-size:16px;
   }
   nav#nav{display:none !important;}
   #user-card{display:none !important;}
   
-  main{max-width:1100px; margin: 0 auto; padding: 36px 40px 60px;}
+  main{max-width:1100px;margin:0 auto;padding:36px 40px 60px;}
 
-  /* Grid Divisi 4 Kolom */
-  #home-div-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 20px !important; }
+  /* Grid Divisi 4 Kolom Sejajar */
+  #home-div-grid { 
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important; 
+    gap: 20px !important; 
+  }
   
   /* Header Desktop */
-  header{padding:40px 32px; margin-bottom:0;}
+  header{padding:40px 32px;margin-bottom:0;}
   header h1{font-size:32px;}
   .hdr-sub{font-size:14px;}
-  .hdr-status{font-size:14px; margin-top:16px;}
+  .hdr-status{font-size:14px;margin-top:16px;}
   .hdr-version{font-size:12px;}
-  .hdr-logo{font-size:52px; margin-bottom:12px;}
+  .hdr-logo{font-size:52px;margin-bottom:12px;}
 
   /* Tombol Bar Desktop */
   .hdr-btns{
-    max-width:1100px; margin: 0 auto; padding:20px 40px;
-    background:transparent; border:none; justify-content:flex-start; gap:16px;
+    max-width:1100px;margin:0 auto;padding:20px 40px;
+    background:transparent;border:none;justify-content:flex-start;gap:16px;
   }
   .hdr-btn{
-    max-width:220px; flex:0 1 auto; min-width:150px;
-    padding:16px 24px; font-size:15px; border-radius:12px;
+    max-width:220px;flex:0 1 auto;min-width:150px;
+    padding:16px 24px;font-size:15px;border-radius:12px;
   }
 
   /* Sidebar Desktop */
@@ -123,31 +132,40 @@ nav button.on{color:var(--green);box-shadow:inset 0 3px var(--green)}
   .sb-user-info b{font-size:15px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .sb-user-info span{font-size:12px;color:var(--mute);display:block;}
 
-  /* Perbesar elemen umum lainnya */
-  .card{padding:24px; margin-bottom:20px; border-radius:16px;}
-  .card h3{font-size:16px; padding-bottom:14px; margin-bottom:16px;}
-  .menu-card{padding:20px; margin-bottom:16px; border-radius:14px;}
+  /* Elemen Umum di Desktop */
+  .card{padding:24px;margin-bottom:20px;border-radius:16px;}
+  .card h3{font-size:16px;padding-bottom:14px;margin-bottom:16px;}
+  
+  /* Menu Pusat (Dashboard, Jurnal) Tetap Horizontal */
+  .menu-card{
+    padding:20px;margin-bottom:16px;border-radius:14px;
+    display:flex !important;align-items:center;gap:16px;
+  }
   .menu-text b{font-size:17px;}
   .menu-text .mute{font-size:14px;}
-  .menu-ico{width:56px; height:56px; border-radius:14px; font-size:28px;}
-  .div-card{padding:28px 20px; border-radius:16px;}
+  .menu-ico{width:56px;height:56px;border-radius:14px;font-size:28px;}
+  
+  /* Kartu Divisi */
+  .div-card{padding:28px 20px;border-radius:16px;}
   .div-card-name{font-size:18px;}
-  .div-card-ico{font-size:48px; margin-bottom:16px;}
-  .div-card-sub{font-size:13px; margin-top:8px;}
-  .section-label{font-size:13px; padding:24px 4px 14px;}
-  .stat{padding:20px; border-radius:12px;}
+  .div-card-ico{font-size:48px;margin-bottom:16px;}
+  .div-card-sub{font-size:13px;margin-top:8px;}
+  .section-label{font-size:13px;padding:24px 4px 14px;}
+  .stat{padding:20px;border-radius:12px;}
   .stat .v{font-size:26px;}
   .stat .l{font-size:13px;}
   .stat .d{font-size:13px;}
-  .btn{font-size:15px; padding:14px 20px; border-radius:12px;}
+  .btn{font-size:15px;padding:14px 20px;border-radius:12px;}
   .form-grid label{font-size:13px;}
-  .form-grid input, .form-grid select{font-size:15px; padding:12px 14px;}
+  .form-grid input, .form-grid select{font-size:15px;padding:12px 14px;}
   table{font-size:15px;}
-  th{padding:12px; font-size:13px;}
+  th{padding:12px;font-size:13px;}
   td{padding:12px;}
 }
 
-/* KOMPONEN UMUM */
+/* ═══════════════════════════════════════════════════════════════
+   4. KOMPONEN UMUM (Mobile & Desktop)
+   ═══════════════════════════════════════════════════════════════ */
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
 .card h3{margin:0 0 12px;font-family:Figtree;font-size:14px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);padding-bottom:10px;border-bottom:2px solid var(--line);font-weight:800}
 .big{font-size:32px;color:var(--green);line-height:1;font-family:Fraunces;font-weight:600}
@@ -167,7 +185,7 @@ nav button.on{color:var(--green);box-shadow:inset 0 3px var(--green)}
 .bar{height:9px;background:var(--line);border-radius:5px;overflow:hidden;margin:6px 0}
 .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--green2))}
 
-/* Tabel & Form */
+/* Tabel */
 table{width:100%;border-collapse:collapse;font-size:13.5px}
 th{background:var(--green);color:#fff;text-align:left;padding:10px;font-size:11px;text-transform:uppercase;letter-spacing:.3px;font-weight:700;white-space:nowrap}
 td{padding:10px;border-bottom:1px solid var(--line)}
@@ -180,6 +198,7 @@ tr:last-child td{border-bottom:none}
 .table-wrap{overflow-x:auto;margin:0 -16px;padding:0 16px}
 .table-wrap table{min-width:640px}
 
+/* Form & Button */
 input,select,textarea{width:100%;padding:11px;border:1.5px solid #d1d5db;border-radius:8px;font:inherit;background:#fff;color:var(--ink);outline:none;font-family:inherit}
 input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(45,80,22,.1)}
 label{display:block;font-size:12.5px;color:var(--mute);font-weight:600;margin:12px 0 6px}
@@ -208,10 +227,35 @@ button{font-family:inherit;cursor:pointer;border:0}
 .tb-actions{white-space:nowrap}
 .tb-actions button{margin-left:4px}
 
+/* Dashboard / Home (Kartu Menu) */
+.menu-card{
+  background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:16px;margin-bottom:12px;cursor:pointer;
+  display:flex;align-items:center;gap:14px;transition:.15s;
+  width: 100%;
+}
+.menu-card:active{transform:scale(.98);border-color:var(--green)}
+.menu-ico{width:48px;height:48px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;font-size:24px}
+.menu-text{flex:1;text-align:left}
+.menu-text b{font-size:15px;display:block}
+.menu-text .mute{font-size:13px;margin-top:2px}
+.menu-arrow{color:#bbb;font-size:22px;flex:none}
+
+/* Kartu Divisi */
+.div-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 16px;text-align:center;cursor:pointer;transition:.15s;box-shadow:0 2px 6px rgba(0,0,0,.02);}
+.div-card:active{transform:scale(.96);}
+.div-card:hover{box-shadow:0 6px 16px rgba(0,0,0,.08);border-color:var(--green);}
+.div-card-ico{font-size:38px;margin-bottom:12px;}
+.div-card-name{font-weight:700;font-size:15px;color:var(--ink);}
+.div-card-sub{font-size:12px;color:var(--mute);margin-top:6px;}
+
+.section-label{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--mute);padding:18px 4px 10px;margin-top:10px;}
+.section-label:first-of-type{margin-top:0}
+
 /* Modal, Toast, dll */
 .empty{text-align:center;color:var(--mute);padding:40px 12px;font-size:14px}
 .empty .e{font-size:40px;display:block;margin-bottom:10px;opacity:.55}
-#st{position:fixed;top:8px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 16px;border-radius:20px;font-size:13.5px;display:none;z-index:200; box-shadow:0 4px 12px rgba(0,0,0,.15);}
+#st{position:fixed;top:8px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 16px;border-radius:20px;font-size:13.5px;display:none;z-index:200;box-shadow:0 4px 12px rgba(0,0,0,.15);}
 #st.error{background:var(--red)}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px)}
 #modal.show{display:flex}
@@ -225,55 +269,3 @@ button{font-family:inherit;cursor:pointer;border:0}
 .mfoot{display:flex;gap:10px;margin-top:20px}
 .mfoot .btn{flex:1}
 .hint{font-size:12px;color:var(--mute);margin-top:6px}
-
-/* Print */
-.print-doc{background:#fff;color:#1a1a18;padding:20px;font-family:'Figtree',system-ui,sans-serif;font-size:12px;line-height:1.4;}
-.pd-kop{display:flex;align-items:center;gap:12px;margin-bottom:10px}
-.pd-logo{font-size:38px;line-height:1}
-.pd-kop-text{flex:1}
-.pd-kop-title{font-family:Fraunces,serif;font-size:16px;font-weight:600;color:#2d5016;letter-spacing:-.3px}
-.pd-kop-sub{font-size:10.5px;color:#6b7280;margin-top:1px}
-.pd-kop-line{font-size:9.5px;color:#9ca3af;margin-top:1px}
-.pd-hr{border:0;border-top:2px solid #2d5016;margin:8px 0 14px}
-.pd-title{font-family:Fraunces,serif;font-size:16px;font-weight:600;text-align:center;color:#2d5016;margin:14px 0 10px;text-decoration:underline;letter-spacing:.5px}
-.pd-meta{margin-bottom:12px}
-.pd-meta-row{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:8px;align-items:center;font-size:11.5px}
-.pd-lbl{color:#6b7280;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;font-weight:700}
-.pd-val{font-size:12px}
-.pd-section{margin:10px 0}
-.pd-tbl{width:100%;font-size:11.5px;border-collapse:collapse}
-.pd-tbl td{padding:4px 0;vertical-align:top;border:0}
-.pd-lbl-td{width:130px;color:#6b7280;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
-.pd-val-td{font-size:12px}
-.pd-hint{font-size:10px;color:#6b7280;margin-top:1px}
-.pd-amount{background:#2d5016;color:#fff;padding:14px;text-align:center;border-radius:8px;margin:14px 0}
-.pd-amount-label{font-size:10px;opacity:.8;letter-spacing:1px;text-transform:uppercase}
-.pd-amount-value{font-family:Fraunces,serif;font-size:24px;font-weight:600;margin-top:2px}
-.pd-tbl-items{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0;border:1px solid #d1d5db}
-.pd-tbl-items th{background:#eef2e9;color:#2d5016;padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.3px;font-weight:800;text-align:left;border-bottom:1px solid #d1d5db}
-.pd-tbl-items th.num{text-align:right}
-.pd-tbl-items td{padding:6px 8px;border-bottom:1px solid #f0f0f0;vertical-align:top}
-.pd-tbl-items td.num{text-align:right;font-variant-numeric:tabular-nums}
-.pd-tbl-items tr:last-child td{border-bottom:0}
-.pd-totals{margin-top:12px;padding-top:10px;border-top:2px solid #2d5016}
-.pd-total-row{display:flex;justify-content:space-between;padding:3px 0;font-size:11.5px}
-.pd-total-row.total{font-size:14px;font-weight:700;border-top:1px solid #86efac;margin-top:6px;padding-top:8px;color:#2d5016}
-.pd-sign{display:flex;justify-content:space-around;margin-top:36px;font-size:11px}
-.pd-sign-box{text-align:center;min-width:120px}
-.pd-sign-top{color:#6b7280;font-size:10px;margin-bottom:52px}
-.pd-sign-line{border-top:1px solid #1a1a18;padding-top:4px;margin-bottom:2px;min-width:120px}
-.pd-sign-label{color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
-.pd-note{font-size:10.5px;color:#6b7280;font-style:italic;margin-top:12px}
-.pd-nsfp{border:2px dashed #2d5016;border-radius:8px;padding:10px;text-align:center;margin:10px 0;background:#fafff7}
-.pd-nsfp-label{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;font-weight:700}
-.pd-nsfp-value{font-family:monospace;font-size:16px;font-weight:700;color:#2d5016;letter-spacing:1.5px;margin-top:3px}
-
-@media print{
-  body > *:not(#modal){display:none !important}
-  #modal{position:static;background:#fff;backdrop-filter:none;display:block !important}
-  #modal .mc{max-height:none;border-radius:0;box-shadow:none;padding:0;animation:none;max-width:100%}
-  .mhead,.mfoot{display:none !important}
-  .print-doc{padding:0;font-size:11px}
-  body{padding:0;background:#fff}
-  @page{margin:12mm}
-}

@@ -4,7 +4,7 @@
    Set SYNC_NEW = true SETELAH Apps Script punya handler untuk tipe:
    produksi, panen, kandang, kandangLog (kalau belum, antrean sync macet).
    ═══════════════════════════════════════════════════════════════ */
-const SYNC_NEW = false;
+const SYNC_NEW = true;
 function farmQueue(type, action, rec, id){
   if (!SYNC_NEW) return;
   queue(action === 'delete' ? { type, action, id } : { type, action, record: rec });

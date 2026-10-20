@@ -1,7 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════
    KONFIGURASI
    ═══════════════════════════════════════════════════════════════ */
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxb816b1fVJ8MJ_xlqaBrQbnpvzv23EXs-akLWxofiEtZOpQelC8PliS9YEzOkY7yD4/exec';
+// URL Baru dari Deploy Ulang Apps Script
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbythamiGH2VLAmYnj1T41_XDHbh8OU8eIlmo4RpFgNZKcQ2RwszyPuJnNhnYgnkkoo6/exec';
 const API_KEY = 'ERP_2026';
 const PPN_DEFAULT = 11;
 
@@ -81,6 +82,8 @@ function seed(){
     transfer: [],
     permintaan: [], pesanan: [],
     jurnalUmum: [],
+    // Modul Farm
+    produksi: [], panen: [], kandang: [], kandangLog: [],
     users: [
       { id:'u-owner',  nama:'Owner',      role:'owner',   entity:'HQ', pin:'1234' },
       { id:'u-man-sb', nama:'Manajer SB', role:'manajer', entity:'SB', pin:'1111' },
@@ -122,7 +125,7 @@ function migrate(){
     if (!Array.isArray(S.kasKecil.perEntity[k].mutasi)){ S.kasKecil.perEntity[k].mutasi = []; changed = true; }
   });
 
-  ['barang','supplier','pelanggan','pembelian','penjualan','pembayaran','penerimaan','transfer','permintaan','pesanan','jurnalUmum'].forEach(k => {
+  ['barang','supplier','pelanggan','pembelian','penjualan','pembayaran','penerimaan','transfer','permintaan','pesanan','jurnalUmum', 'produksi', 'panen', 'kandang', 'kandangLog'].forEach(k => {
     if (!Array.isArray(S[k])){ S[k] = []; changed = true; }
   });
 
@@ -324,7 +327,11 @@ async function flush(){
       try {
         const res = await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(q[0]) });
         const txt = await res.text();
-        if (txt.trim() !== 'ok') break;
+        // FIX: Tangani jika txt "err: ..." dari server agar tidak looping
+        if (txt.trim() !== 'ok') {
+          console.error("Sync Server Error:", txt);
+          break; 
+        }
         const cur = getQueue(); cur.shift(); setQueue(cur);
         updateStatus(); 
       } catch(e){ break; }
@@ -404,7 +411,6 @@ async function checkAppUpdate(isManual = false) {
     const j = await r.json();
     latestVer = String(j.v);
 
-    // Update tampilan versi di header
     const todayStr = new Date().toISOString().slice(0,10);
     const elVer = document.getElementById('app-version');
     if (elVer) elVer.textContent = `v${latestVer} · ${todayStr}`;
@@ -415,15 +421,13 @@ async function checkAppUpdate(isManual = false) {
     }
 
     if (currentVer !== latestVer) {
-      // Ada Update
       btn.innerHTML = `⬇ Update v${latestVer}`;
-      btn.style.background = '#2563eb'; // Biru
+      btn.style.background = '#2563eb';
       btn.style.color = '#fff';
       btn.style.border = '1px solid #1e40af';
       btn.style.cursor = 'pointer';
       if (isManual) toast('Versi baru tersedia! Klik tombol biru untuk update.');
     } else {
-      // Versi Terbaru
       btn.innerHTML = '⬇ Update';
       btn.style.background = 'rgba(255,255,255,0.15)';
       btn.style.color = 'rgba(255,255,255,0.9)';
@@ -440,13 +444,11 @@ async function checkAppUpdate(isManual = false) {
 
 function handleUpdateClick() {
   if (latestVer && currentVer !== latestVer) {
-    // Jika tombol sedang biru (ada update)
     if (confirm('Versi terbaru v' + latestVer + ' tersedia.\nMuat ulang aplikasi sekarang?')) {
       localStorage.app_v = latestVer;
       hardReset();
     }
   } else {
-    // Jika tidak ada update, lakukan cek manual
     checkAppUpdate(true);
   }
 }
@@ -470,7 +472,7 @@ async function hardReset() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   BOOTSTRAP
+   BOOTSTRAP (Tarik Data dari Google Sheet)
    ═══════════════════════════════════════════════════════════════ */
 async function bootstrapSync(){
   if (!hasUrl() || getUrl() === 'DEMO') return;
@@ -495,6 +497,13 @@ async function bootstrapSync(){
         if (d.permintaan)        S.permintaan = d.permintaan;
         if (d.pesanan)           S.pesanan    = d.pesanan;
         if (d.users?.length)     S.users      = d.users;
+        
+        // FIX: Tarik data modul farm dari Google Sheet
+        if (d.produksi)          S.produksi   = d.produksi;
+        if (d.panen)             S.panen      = d.panen;
+        if (d.kandang)           S.kandang    = d.kandang;
+        if (d.kandangLog)        S.kandangLog = d.kandangLog;
+
         if (d.kk?.length){
           const per = {};
           ['HQ','SB','DR','AY','PK'].forEach(k => per[k] = { saldo: 0, mutasi: [] });
@@ -533,6 +542,13 @@ function pushAllToSheet(){
   (S.transfer||[]).forEach(p => push('transfer', p));
   (S.permintaan||[]).forEach(p => push('permintaan', p));
   (S.pesanan||[]).forEach(p => push('pesanan', p));
+  
+  // FIX: Kirim data modul farm ke Google Sheet
+  (S.produksi||[]).forEach(p => push('produksi', p));
+  (S.panen||[]).forEach(p => push('panen', p));
+  (S.kandang||[]).forEach(p => push('kandang', p));
+  (S.kandangLog||[]).forEach(p => push('kandangLog', p));
+  
   Object.values(S.kasKecil.perEntity||{}).forEach(o => (o.mutasi||[]).forEach(m => push('kk', m)));
   localStorage[K_BOOT] = '1';
   if (c) toast('⬆ Mengirim ' + c + ' data…');
@@ -907,7 +923,7 @@ window.addEventListener('offline', () => { updateStatus(); toast('Offline','erro
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden){ 
     flush(); 
-    checkAppUpdate(false); // Cek diam-diam tanpa ubah tombol jadi "Memeriksa"
+    checkAppUpdate(false); 
   }
 });
 
@@ -944,7 +960,6 @@ function boot(){
   
   refreshAll();
   
-  // Cek versi di background (tidak mengubah tulisan tombol)
   checkAppUpdate(false);
 }
 window.bootApp = boot;

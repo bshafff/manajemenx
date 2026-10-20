@@ -1,18 +1,46 @@
 <div id="v-dashboard" class="view">
-  <!-- HERO: Laba Bersih -->
+  <!-- HERO: Ringkasan Eksekutif -->
   <div class="hero-card" id="dash-hero"></div>
 
-  <!-- Quick stats 2×2 -->
+  <!-- QUICK STATS -->
   <div class="grid" id="dash-stats"></div>
 
-  <!-- Kas per entitas (owner only) -->
-  <div class="card" id="dash-kas-ent"></div>
+  <!-- CHARTS ROW -->
+  <div class="chart-grid">
+    <div class="card">
+      <h3>Omzet per Lini</h3>
+      <div class="chart-container">
+        <canvas id="chartOmzet"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Tren Laba Bersih (6 Bulan)</h3>
+      <div class="chart-container">
+        <canvas id="chartLaba"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Komposisi Biaya</h3>
+      <div class="chart-container">
+        <canvas id="chartBiaya"></canvas>
+      </div>
+    </div>
+  </div>
 
-  <!-- Performa 4 lini (compact) -->
-  <div class="card" id="dash-lini"></div>
+  <!-- BOTTOM ROW -->
+  <div class="grid" style="margin-top:16px">
+    <div class="card">
+      <h3>🔥 Top 5 Barang Terlaris</h3>
+      <div id="dash-top-barang"></div>
+    </div>
+    <div class="card">
+      <h3>⚠️ Peringatan Stok Kritis</h3>
+      <div id="dash-stok-kritis"></div>
+    </div>
+  </div>
 
-  <!-- Laporan lengkap (collapsed) -->
-  <details class="card accordion">
+  <!-- Laporan Lengkap (Collapse) -->
+  <details class="card accordion" style="margin-top:16px">
     <summary>📊 Laporan Lengkap (Laba/Rugi & Neraca)</summary>
     <div id="dash-lr" style="margin-top:12px"></div>
     <div id="dash-neraca" style="margin-top:12px"></div>

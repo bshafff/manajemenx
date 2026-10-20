@@ -13,6 +13,7 @@ const VIEW_FILES = {
   'penerimaan': 'penerimaan.html',
   'kaskecil':   'kaskecil.html',
   'jurnal':     'jurnal.html',
+  // Modul baru yang ada di repo kamu
   'produksi':   'produksi.html',
   'panen':      'panen.html',
   'kandang':    'kandang.html',
@@ -57,7 +58,7 @@ if ('serviceWorker' in navigator){
 async function initApp(){
   await loadAllViews();
   if (typeof boot === 'function') boot();
-  checkUpdate(true);
+  
   setInterval(() => {
     if (!document.hidden && typeof hasUrl === 'function' && hasUrl()) flush();
   }, 30000);

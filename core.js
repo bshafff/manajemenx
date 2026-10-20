@@ -385,15 +385,20 @@ function updateStatus(){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SISTEM UPDATE (Seamless)
+   SISTEM UPDATE (Cepat & Responsif)
    ═══════════════════════════════════════════════════════════════ */
 let latestVer = null;
 let currentVer = localStorage.app_v || '0';
 
-async function checkAppUpdate() {
+async function checkAppUpdate(isManual = false) {
   const btn = document.getElementById('btn-update');
   if (!btn) return;
   
+  if (isManual) {
+    btn.innerHTML = '⏳ Memeriksa...';
+    btn.style.cursor = 'wait';
+  }
+
   try {
     const r = await fetch('./version.json?t=' + Date.now(), { cache: 'no-store' });
     const j = await r.json();
@@ -404,38 +409,45 @@ async function checkAppUpdate() {
     const elVer = document.getElementById('app-version');
     if (elVer) elVer.textContent = `v${latestVer} · ${todayStr}`;
 
-    if (currentVer === '0' || currentVer === latestVer) {
-      // Versi Terbaru
-      if (currentVer === '0') localStorage.app_v = latestVer;
-      btn.innerHTML = `✓ v${latestVer}`;
-      btn.style.background = 'rgba(255,255,255,0.15)';
-      btn.style.color = 'rgba(255,255,255,0.9)';
-      btn.style.border = 'none';
-      btn.style.cursor = 'pointer';
-    } else {
+    if (currentVer === '0') {
+      localStorage.app_v = latestVer;
+      currentVer = latestVer;
+    }
+
+    if (currentVer !== latestVer) {
       // Ada Update
       btn.innerHTML = `⬇ Update v${latestVer}`;
       btn.style.background = '#2563eb'; // Biru
       btn.style.color = '#fff';
       btn.style.border = '1px solid #1e40af';
       btn.style.cursor = 'pointer';
+      if (isManual) toast('Versi baru tersedia! Klik tombol biru untuk update.');
+    } else {
+      // Versi Terbaru
+      btn.innerHTML = '⬇ Update';
+      btn.style.background = 'rgba(255,255,255,0.15)';
+      btn.style.color = 'rgba(255,255,255,0.9)';
+      btn.style.border = 'none';
+      btn.style.cursor = 'pointer';
+      if (isManual) toast(`✓ Sudah versi terbaru (v${latestVer})`);
     }
   } catch(e) {
-    btn.innerHTML = `⚠️ Gagal Cek`;
-    btn.style.background = 'rgba(255,255,255,0.1)';
-    btn.style.color = '#fca5a5';
-    btn.style.cursor = 'not-allowed';
+    btn.innerHTML = '⬇ Update';
+    btn.style.cursor = 'pointer';
+    if (isManual) toast('Gagal memeriksa update', 'error');
   }
 }
 
 function handleUpdateClick() {
   if (latestVer && currentVer !== latestVer) {
+    // Jika tombol sedang biru (ada update)
     if (confirm('Versi terbaru v' + latestVer + ' tersedia.\nMuat ulang aplikasi sekarang?')) {
       localStorage.app_v = latestVer;
       hardReset();
     }
   } else {
-    toast('✓ Anda sudah menggunakan versi terbaru (' + (latestVer || currentVer) + ')');
+    // Jika tidak ada update, lakukan cek manual
+    checkAppUpdate(true);
   }
 }
 
@@ -452,7 +464,6 @@ async function hardReset() {
     }
   } catch(e) {}
   
-  // Tambahkan timestamp agar browser dipaksa mengambil file baru dari server
   setTimeout(() => {
     window.location.href = window.location.pathname + '?fresh=' + Date.now();
   }, 800);
@@ -896,7 +907,7 @@ window.addEventListener('offline', () => { updateStatus(); toast('Offline','erro
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden){ 
     flush(); 
-    checkAppUpdate();
+    checkAppUpdate(false); // Cek diam-diam tanpa ubah tombol jadi "Memeriksa"
   }
 });
 
@@ -933,7 +944,7 @@ function boot(){
   
   refreshAll();
   
-  // Cek update segera setelah boot
-  checkAppUpdate();
+  // Cek versi di background (tidak mengubah tulisan tombol)
+  checkAppUpdate(false);
 }
 window.bootApp = boot;

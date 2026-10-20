@@ -269,3 +269,34 @@ button{font-family:inherit;cursor:pointer;border:0}
 .mfoot{display:flex;gap:10px;margin-top:20px}
 .mfoot .btn{flex:1}
 .hint{font-size:12px;color:var(--mute);margin-top:6px}
+/* ═══════════════════════════════════════════════════════════════
+   CHART GRID & CONTAINER
+   ═══════════════════════════════════════════════════════════════ */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+@media (max-width: 900px) {
+  .chart-grid { grid-template-columns: 1fr; }
+}
+
+.chart-container {
+  position: relative;
+  height: 220px;
+  width: 100%;
+}
+
+/* List top barang & stok kritis */
+.list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.list-row:last-child { border-bottom: none; }
+.list-rank { font-weight: 700; color: var(--mute); width: 24px; }
+.list-name { flex: 1; font-weight: 600; font-size: 13.5px; }
+.list-val { font-weight: 700; font-size: 13.5px; color: var(--green); }

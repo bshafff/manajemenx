@@ -1,4 +1,4 @@
-const CACHE = 'imb-v9';
+const CACHE = 'imb-v10';
 const SHELL = [
   './', './index.html', './style.css',
   './core.js', './entities.js', './auth.js', './import.js',
@@ -37,6 +37,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   const url = new URL(req.url);
+  
   if (req.method !== 'GET') return;
   if (url.origin !== location.origin) return;
 
@@ -58,7 +59,10 @@ self.addEventListener('fetch', e => {
         }
         return res;
       })
-      .catch(() => caches.match(req).then(r => r || caches.match('./index.html')))
+      .catch(() => {
+        // ignoreSearch: true mencegah blank putih saat reload ?fresh=...
+        return caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('./index.html'));
+      })
   );
 });
 

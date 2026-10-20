@@ -315,7 +315,7 @@ async function flush(){
   const url = getUrl();
   if (!url || url === 'DEMO' || busy || !navigator.onLine) return;
   busy = true;
-  updateStatus(); // Langsung berubah jadi indikator loading
+  updateStatus(); 
   
   try {
     while (true){
@@ -326,7 +326,7 @@ async function flush(){
         const txt = await res.text();
         if (txt.trim() !== 'ok') break;
         const cur = getQueue(); cur.shift(); setQueue(cur);
-        updateStatus(); // Update UI setiap kali 1 data berhasil (9 -> 8 -> 7)
+        updateStatus(); 
       } catch(e){ break; }
     }
     if (!getQueue().length && hasUrl() && getUrl() !== 'DEMO') trackSync();
@@ -385,66 +385,77 @@ function updateStatus(){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   VERSION & UPDATE
+   SISTEM UPDATE (Seamless)
    ═══════════════════════════════════════════════════════════════ */
-async function loadVersionDisplay(){
-  try {
-    const r = await fetch('./version.json?t=' + Date.now(), { cache:'no-store' });
-    const j = await r.json();
-    const todayStr = new Date().toISOString().slice(0,10);
-    const el = document.getElementById('app-version');
-    if (el) el.textContent = `v${j.v} · ${todayStr}`;
-    return j.v;
-  } catch(e){ return null; }
-}
+let latestVer = null;
+let currentVer = localStorage.app_v || '0';
 
-async function refreshUpdateBadge(){
-  const cur = localStorage.app_v;
-  const latest = await loadVersionDisplay();
-  if (!latest) return;
-  
+async function checkAppUpdate() {
   const btn = document.getElementById('btn-update');
   if (!btn) return;
+  
+  try {
+    const r = await fetch('./version.json?t=' + Date.now(), { cache: 'no-store' });
+    const j = await r.json();
+    latestVer = String(j.v);
 
-  // Jika belum punya versi lokal, simpan diam-diam
-  if (!cur) {
-    localStorage.app_v = String(latest);
-    btn.style.display = 'none';
-    return;
-  }
+    // Update tampilan versi di header
+    const todayStr = new Date().toISOString().slice(0,10);
+    const elVer = document.getElementById('app-version');
+    if (elVer) elVer.textContent = `v${latestVer} · ${todayStr}`;
 
-  if (String(cur) !== String(latest)){
-    // Ada update
-    btn.style.display = 'flex';
-    btn.style.background = '#2563eb'; // Biru
-    btn.style.color = '#fff';
-    btn.style.border = '1px solid #1e40af';
-    btn.innerHTML = `⬇ Update`;
-    btn.onclick = () => {
-      localStorage.app_v = String(latest);
-      window.location.reload(true);
-    };
-  } else {
-    // Versi terbaru
-    btn.style.display = 'none';
+    if (currentVer === '0' || currentVer === latestVer) {
+      // Versi Terbaru
+      if (currentVer === '0') localStorage.app_v = latestVer;
+      btn.innerHTML = `✓ v${latestVer}`;
+      btn.style.background = 'rgba(255,255,255,0.15)';
+      btn.style.color = 'rgba(255,255,255,0.9)';
+      btn.style.border = 'none';
+      btn.style.cursor = 'pointer';
+    } else {
+      // Ada Update
+      btn.innerHTML = `⬇ Update v${latestVer}`;
+      btn.style.background = '#2563eb'; // Biru
+      btn.style.color = '#fff';
+      btn.style.border = '1px solid #1e40af';
+      btn.style.cursor = 'pointer';
+    }
+  } catch(e) {
+    btn.innerHTML = `⚠️ Gagal Cek`;
+    btn.style.background = 'rgba(255,255,255,0.1)';
+    btn.style.color = '#fca5a5';
+    btn.style.cursor = 'not-allowed';
   }
 }
 
-async function checkUpdate(silent){
-  try {
-    const r = await fetch('./version.json?t=' + Date.now(), { cache:'no-store' });
-    const j = await r.json();
-    const seen = localStorage.app_v;
-    if (!seen){ localStorage.app_v = String(j.v); return 'first'; }
-    if (String(j.v) !== String(seen)){
-      return String(j.v);
+function handleUpdateClick() {
+  if (latestVer && currentVer !== latestVer) {
+    if (confirm('Versi terbaru v' + latestVer + ' tersedia.\nMuat ulang aplikasi sekarang?')) {
+      localStorage.app_v = latestVer;
+      hardReset();
     }
-    if (!silent) toast('✓ Sudah versi terbaru');
-    return 'latest';
-  } catch(e){
-    if (!silent) toast('Gagal cek update', 'error');
-    return 'error';
+  } else {
+    toast('✓ Anda sudah menggunakan versi terbaru (' + (latestVer || currentVer) + ')');
   }
+}
+
+async function hardReset() {
+  toast('Membersihkan cache & memuat ulang...', null, 5000);
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) await reg.unregister();
+    }
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  } catch(e) {}
+  
+  // Tambahkan timestamp agar browser dipaksa mengambil file baru dari server
+  setTimeout(() => {
+    window.location.href = window.location.pathname + '?fresh=' + Date.now();
+  }, 800);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -883,7 +894,10 @@ if (/iphone|ipad|ipod/i.test(navigator.userAgent) &&
 window.addEventListener('online', () => { updateStatus(); toast('Online'); flush(); });
 window.addEventListener('offline', () => { updateStatus(); toast('Offline','error'); });
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden){ flush(); checkUpdate(true); refreshUpdateBadge(); }
+  if (!document.hidden){ 
+    flush(); 
+    checkAppUpdate();
+  }
 });
 
 const _api = new URLSearchParams(location.search).get('api');
@@ -919,8 +933,7 @@ function boot(){
   
   refreshAll();
   
-  // Panggil cek versi
-  loadVersionDisplay().then(() => refreshUpdateBadge());
-  checkUpdate(true);
+  // Cek update segera setelah boot
+  checkAppUpdate();
 }
 window.bootApp = boot;

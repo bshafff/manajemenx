@@ -963,3 +963,68 @@ function boot(){
   checkAppUpdate(false);
 }
 window.bootApp = boot;
+
+/* ═══════════════════════════════════════════════════════════════
+   BACKUP & RESTORE (Khusus IMB ERP)
+   ═══════════════════════════════════════════════════════════════ */
+function backupAllData() {
+  try {
+    const data = {
+      _app: 'IMB_ERP',
+      _version: '1.0',
+      _exported_at: new Date().toISOString(),
+      state: S // Simpan seluruh object state S
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    const today = new Date().toISOString().split('T')[0];
+
+    link.href = URL.createObjectURL(blob);
+    link.download = `Backup_IMB_${today}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+
+    toast('✅ File backup berhasil didownload');
+  } catch (err) {
+    console.error(err);
+    toast('Gagal backup: ' + err.message, 'error');
+  }
+}
+
+function restoreAllData(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  if (!confirm('⚠️ PERINGATAN!\n\nRestore data akan MENGHAPUS semua data lokal saat ini dan menimpanya dengan data dari file backup.\n\nLanjutkan?')) {
+    input.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.state) {
+        throw new Error('Format file tidak dikenali. Pastikan ini file backup IMB ERP.');
+      }
+
+      // Replace current state with backup
+      S = data.state;
+      persist(); // Save to localStorage
+
+      toast('✅ Data berhasil direstore! Memuat ulang aplikasi...');
+      setTimeout(() => {
+        location.reload();
+      }, 1500);
+
+    } catch (err) {
+      console.error(err);
+      toast('Gagal restore: ' + err.message, 'error');
+      input.value = '';
+    }
+  };
+  reader.readAsText(file);
+}

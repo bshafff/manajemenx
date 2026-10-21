@@ -1,55 +1,59 @@
-<div id="v-home" class="view active">
-
-  <!-- Info user (hanya tampil di mobile) -->
-  <div class="card" id="user-card" style="display:flex;align-items:center;gap:12px">
-    <div id="uc-ico" style="font-size:32px">👤</div>
-    <div style="flex:1">
-      <div id="uc-nama" style="font-weight:700"></div>
-      <div id="uc-info" class="hint" style="margin:0"></div>
+<div id="home" class="view active">
+  <div class="menu-section-title">PILIH MENU</div>
+  <div class="menu-list">
+    <div class="menu-card" onclick="openModule('dashboard')">
+      <div class="menu-icon" style="background:#fee2e2;">📊</div>
+      <div class="menu-text">
+        <h3>Dashboard Panen</h3>
+        <p>Statistik panen, reject & pengiriman per bulan</p>
+      </div>
+      <span class="menu-arrow">›</span>
     </div>
-    <button class="btn btn-s btn-sm" onclick="logout()">Keluar</button>
+    <div class="menu-card" onclick="openModule('dash-mika')">
+      <div class="menu-icon" style="background:#f3e8ff;">🍓</div>
+      <div class="menu-text">
+        <h3>Dashboard Mika</h3>
+        <p>Stok harian mika, layer, sleeve, stiker & netfoam</p>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-card" onclick="openModule('lks')">
+      <div class="menu-icon" style="background:#dcfce7;">📝</div>
+      <div class="menu-text">
+        <h3>Form Kerja Harian (LKS)</h3>
+        <p>Catat kegiatan, material & keterangan pekerja harian</p>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-card" onclick="openModule('panen')">
+      <div class="menu-icon" style="background:#fef3c7;">🌾</div>
+      <div class="menu-text">
+        <h3>Rekap Panen & Sortir</h3>
+        <p>Panen per grade, reject kebun/processing & pengiriman</p>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    <div class="menu-card" onclick="openModule('kemasan')">
+      <div class="menu-icon" style="background:#dbeafe;">📦</div>
+      <div class="menu-text">
+        <h3>Stok Kemasan (Mika)</h3>
+        <p>Input harian, ringkasan stok, selisih bongkar & rekap bulanan</p>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
   </div>
 
-  <div class="section-label">Menu Pusat</div>
-
-  <div class="menu-card" onclick="openModule('dashboard')">
-    <div class="menu-ico" style="background:#fee2e2">📊</div>
-    <div class="menu-text"><b>Dashboard Konsolidasi</b>
-      <div class="mute">Laba/rugi semua divisi</div></div>
-    <span class="menu-arrow">›</span>
+  <!-- ================= SECTION BACKUP DATA ================= -->
+  <div class="card" style="margin-top: 2rem; background: #f8fafc; border: 1px dashed #cbd5e1;">
+    <div class="card-title" style="border-bottom: none; margin-bottom: 0.5rem; color: #475569;">💾 Backup & Restore Data</div>
+    <div class="info-box" style="margin-bottom: 1rem; background: #fffbeb; border-left-color: #f59e0b; color: #78350f;">
+      Simpan file JSON ini di HP/Laptop kamu secara berkala. Jika data di aplikasi hilang, kamu bisa memulihkannya dari file ini.
+    </div>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+      <button class="btn btn-secondary" onclick="backupAllData()" style="flex: 1;">📥 Backup ke File (.json)</button>
+      
+      <input type="file" id="restore-file" accept=".json" style="display: none;" onchange="restoreAllData(this)">
+      <button class="btn btn-primary" onclick="document.getElementById('restore-file').click()" style="flex: 1; background:#0284c7;">📤 Restore dari File</button>
+    </div>
   </div>
-
-  <div class="menu-card" onclick="openModule('jurnal')">
-    <div class="menu-ico" style="background:#fef3c7">📚</div>
-    <div class="menu-text"><b>Jurnal Global</b>
-      <div class="mute">Semua transaksi</div></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="section-label">Pilih Divisi</div>
-  
-  <div class="grid" id="home-div-grid" style="grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px">
-    <!-- Diisi via JS -->
-  </div>
-
-  <div class="section-label">Master Data</div>
-
-  <div class="menu-card" onclick="openModule('barang')">
-    <div class="menu-ico" style="background:#f3e8ff">📦</div>
-    <div class="menu-text"><b>Barang</b></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="openModule('supplier')">
-    <div class="menu-ico" style="background:#e0e7ff">🏭</div>
-    <div class="menu-text"><b>Supplier</b></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
-  <div class="menu-card" onclick="openModule('pelanggan')">
-    <div class="menu-ico" style="background:#dbeafe">👥</div>
-    <div class="menu-text"><b>Pelanggan</b></div>
-    <span class="menu-arrow">›</span>
-  </div>
-
 </div>

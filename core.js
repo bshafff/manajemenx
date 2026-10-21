@@ -2,7 +2,7 @@
    KONFIGURASI
    ═══════════════════════════════════════════════════════════════ */
 // URL Baru dari Deploy Ulang Apps Script
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbythamiGH2VLAmYnj1T41_XDHbh8OU8eIlmo4RpFgNZKcQ2RwszyPuJnNhnYgnkkoo6/exec';
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwHzvNoZcxGHl84H4lJk8lhDMZy85_Pq58Ea-OFnqjAnQBaguSz7nfNiz2K767Gg1S_/exec';
 const API_KEY = 'ERP_2026';
 const PPN_DEFAULT = 11;
 

@@ -2,7 +2,7 @@
    KONFIGURASI
    ═══════════════════════════════════════════════════════════════ */
 // URL Baru dari Deploy Ulang Apps Script
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwHzvNoZcxGHl84H4lJk8lhDMZy85_Pq58Ea-OFnqjAnQBaguSz7nfNiz2K767Gg1S_/exec';
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbzmVVov_iAx_1rKAasK1RwSdlgKypges_PbZeprvtw7-iFbftoI4sApmASkTOyKsx5l/exec';
 const API_KEY = 'ERP_2026';
 const PPN_DEFAULT = 11;
 
@@ -54,6 +54,7 @@ const K_QUEUE      = 'erp_queue_v2';
 const K_BOOT       = 'erp_bootstrapped';
 const K_SESSION    = 'erp_session';
 const K_ACTIVE_DIV = 'erp_active_div';
+const K_SERVER_TIME= 'erp_server_time'; // Waktu terakhir data ditarik dari server
 
 const getUrl   = () => localStorage[K_URL] || '';
 const hasUrl   = () => !!localStorage[K_URL];
@@ -303,7 +304,7 @@ function stokKeluar(id, qty){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SYNC & STATUS
+   SYNC & STATUS (UPGRADED TO BATCH)
    ═══════════════════════════════════════════════════════════════ */
 let busy = false;
 function trackSync(){ localStorage.last_sync = Date.now(); }
@@ -324,16 +325,34 @@ async function flush(){
     while (true){
       const q = getQueue();
       if (!q.length) break;
+      
+      // Ambil maksimal 50 item per kirim (Batch)
+      const chunk = q.slice(0, 50);
+      const payload = { action: 'batch', ops: chunk, key: API_KEY };
+      
       try {
-        const res = await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(q[0]) });
+        const res = await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
         const txt = await res.text();
-        if (txt.trim() !== 'ok') {
+        let json;
+        try { json = JSON.parse(txt); } catch(e) { json = null; }
+        
+        if (!json || !json.ok) {
           console.error("Sync Server Error:", txt);
           break; 
         }
-        const cur = getQueue(); cur.shift(); setQueue(cur);
+        
+        // Simpan serverTime untuk Incremental Pull berikutnya
+        if (json.serverTime) localStorage[K_SERVER_TIME] = json.serverTime;
+        
+        // Hapus dari antrean lokal
+        const cur = getQueue(); 
+        cur.splice(0, chunk.length); 
+        setQueue(cur);
         updateStatus(); 
-      } catch(e){ break; }
+      } catch(e){ 
+        console.error("Network Error:", e);
+        break; 
+      }
     }
     if (!getQueue().length && hasUrl() && getUrl() !== 'DEMO') trackSync();
   } finally { 
@@ -344,6 +363,10 @@ async function flush(){
 
 function queue(payload){
   if (!hasUrl() || getUrl() === 'DEMO') return;
+  // Suntikkan updatedAt untuk fitur Stale Guard di GAS v2.0
+  if (payload.action === 'upsert' && payload.record) {
+    payload.record.updatedAt = new Date().toISOString();
+  }
   const q = getQueue(); q.push(payload);
   setQueue(q); flush();
 }
@@ -471,20 +494,30 @@ async function hardReset() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   BOOTSTRAP (Tarik Data dari Google Sheet)
+   BOOTSTRAP (Tarik Data dari Google Sheet - INCREMENTAL)
    ═══════════════════════════════════════════════════════════════ */
 async function bootstrapSync(){
   if (!hasUrl() || getUrl() === 'DEMO') return;
   if (!navigator.onLine){ toast('Offline — sync otomatis nanti'); return; }
-  toast('Memuat dari Sheet…');
+  
+  const lastTime = localStorage[K_SERVER_TIME];
+  const isFirstPull = !lastTime;
+  
+  toast(isFirstPull ? 'Memuat semua data dari Sheet…' : 'Memuat pembaruan dari Sheet…');
+  
   try {
-    const res = await fetch(getUrl() + '?action=pull&key=' + encodeURIComponent(API_KEY));
+    let url = getUrl() + '?action=pull&key=' + encodeURIComponent(API_KEY);
+    if (lastTime) url += '&since=' + encodeURIComponent(lastTime);
+    
+    const res = await fetch(url);
     const txt = await res.text();
     let json; try { json = JSON.parse(txt); } catch(e){ throw new Error('invalid'); }
+    
     if (json && json.ok && json.data){
       const d = json.data;
-      const ada = (d.barang?.length) || (d.supplier?.length) || (d.pelanggan?.length) || (d.pembelian?.length) || (d.penjualan?.length);
-      if (ada){
+      
+      if (isFirstPull) {
+        // --- FULL REPLACE (Pertama kali tarik data) ---
         if (d.barang?.length)    S.barang     = d.barang;
         if (d.supplier)          S.supplier   = d.supplier;
         if (d.pelanggan)         S.pelanggan  = d.pelanggan;
@@ -496,7 +529,6 @@ async function bootstrapSync(){
         if (d.permintaan)        S.permintaan = d.permintaan;
         if (d.pesanan)           S.pesanan    = d.pesanan;
         if (d.users?.length)     S.users      = d.users;
-        
         if (d.produksi)          S.produksi   = d.produksi;
         if (d.panen)             S.panen      = d.panen;
         if (d.kandang)           S.kandang    = d.kandang;
@@ -513,27 +545,92 @@ async function bootstrapSync(){
           });
           S.kasKecil.perEntity = per;
         }
-        migrate();
         
-        // PENTING: Hitung ulang kas karena data dari Sheet tidak menyimpan saldo kas (hanya transaksi)
-        recalcKas();
+      } else {
+        // --- INCREMENTAL MERGE (Hanya gabungkan data yang berubah) ---
+        const mergeData = (key, newItems) => {
+          if (!newItems || !newItems.length) return;
+          const map = new Map(S[key].map(x => [x.id, x]));
+          newItems.forEach(item => map.set(item.id, item)); 
+          S[key] = Array.from(map.values()).sort((a,b) => (b.tgl || '').localeCompare(a.tgl || '') || (b.id || '').localeCompare(a.id || ''));
+        };
         
-        persist(); refreshAll();
-        trackSync();
-        toast('✓ Data dimuat dari Sheet');
-        return;
+        mergeData('barang', d.barang);
+        mergeData('supplier', d.supplier);
+        mergeData('pelanggan', d.pelanggan);
+        mergeData('pembelian', d.pembelian);
+        mergeData('penjualan', d.penjualan);
+        mergeData('pembayaran', d.pembayaran);
+        mergeData('penerimaan', d.penerimaan);
+        mergeData('transfer', d.transfer);
+        mergeData('permintaan', d.permintaan);
+        mergeData('pesanan', d.pesanan);
+        mergeData('users', d.users);
+        mergeData('produksi', d.produksi);
+        mergeData('panen', d.panen);
+        mergeData('kandang', d.kandang);
+        mergeData('kandangLog', d.kandangLog);
+
+        // Merge Kas Kecil
+        if (d.kk && d.kk.length) {
+          d.kk.forEach(m => {
+            const ent = m.entity || 'HQ';
+            if (!S.kasKecil.perEntity[ent]) S.kasKecil.perEntity[ent] = {saldo:0, mutasi:[]};
+            const per = S.kasKecil.perEntity[ent];
+            const idx = per.mutasi.findIndex(x => x.id === m.id);
+            if (idx >= 0) per.mutasi[idx] = m;
+            else per.mutasi.unshift(m);
+          });
+          Object.keys(S.kasKecil.perEntity).forEach(k => {
+            const obj = S.kasKecil.perEntity[k];
+            obj.saldo = obj.mutasi.reduce((acc, curr) => acc + ((curr.masuk||0) - (curr.keluar||0)), 0);
+          });
+        }
+
+        // Handle Tombstone (Penghapusan dari device lain)
+        if (json.deleted && json.deleted.length) {
+          json.deleted.forEach(del => {
+            if (S[del.type] && Array.isArray(S[del.type])) {
+              S[del.type] = S[del.type].filter(x => x.id !== del.id);
+            }
+            // Khusus kas kecil
+            if (del.type === 'kk') {
+               Object.keys(S.kasKecil.perEntity).forEach(k => {
+                 const obj = S.kasKecil.perEntity[k];
+                 obj.mutasi = obj.mutasi.filter(x => x.id !== del.id);
+                 obj.saldo = obj.mutasi.reduce((acc, curr) => acc + ((curr.masuk||0) - (curr.keluar||0)), 0);
+               });
+            }
+          });
+        }
       }
+      
+      // Simpan serverTime agar sync berikutnya incremental
+      if (json.serverTime) localStorage[K_SERVER_TIME] = json.serverTime;
+      
+      migrate();
+      recalcKas();
+      persist(); refreshAll();
+      trackSync();
+      toast('✓ Data disinkronkan dengan Sheet');
+      return;
     }
-    pushAllToSheet();
   } catch(e){
     console.warn('pull gagal:', e);
-    pushAllToSheet();
+    if (isFirstPull) pushAllToSheet(); // Hanya push full jika ini pertama kali
   }
 }
 
 function pushAllToSheet(){
+  const q = getQueue();
   let c = 0;
-  const push = (t, r) => { if (r?.id){ queue({ type:t, action:'upsert', record:r }); c++; } };
+  const push = (t, r) => { 
+    if (r?.id) { 
+      r.updatedAt = new Date().toISOString();
+      q.push({ type:t, action:'upsert', record:r }); 
+      c++; 
+    } 
+  };
   S.barang.forEach(b => push('barang', b));
   (S.supplier||[]).forEach(s => push('supplier', s));
   (S.pelanggan||[]).forEach(p => push('pelanggan', p));
@@ -544,20 +641,26 @@ function pushAllToSheet(){
   (S.transfer||[]).forEach(p => push('transfer', p));
   (S.permintaan||[]).forEach(p => push('permintaan', p));
   (S.pesanan||[]).forEach(p => push('pesanan', p));
-  
   (S.produksi||[]).forEach(p => push('produksi', p));
   (S.panen||[]).forEach(p => push('panen', p));
   (S.kandang||[]).forEach(p => push('kandang', p));
   (S.kandangLog||[]).forEach(p => push('kandangLog', p));
+  (S.users||[]).forEach(u => push('users', u));
   
   Object.values(S.kasKecil.perEntity||{}).forEach(o => (o.mutasi||[]).forEach(m => push('kk', m)));
+  
+  setQueue(q);
   localStorage[K_BOOT] = '1';
-  if (c) toast('⬆ Mengirim ' + c + ' data…');
+  if (c) {
+    toast('⬆ Mengirim ' + c + ' data…');
+    flush();
+  }
 }
 
 function disconnect(){
   if (!confirm('Putuskan koneksi ke Google Sheet?\nData lokal tetap tersimpan.')) return;
   delete localStorage[K_URL];
+  delete localStorage[K_SERVER_TIME];
   toast('Koneksi diputuskan');
   setTimeout(() => location.reload(), 500);
 }
@@ -897,7 +1000,6 @@ function boot(){
   if (!hasUrl()){ localStorage[K_URL] = DEFAULT_URL; }
 
   if (!isLoggedIn()){
-    // renderLogin() akan memanggil fungsi dari auth.js
     if (typeof renderLogin === 'function') renderLogin();
     return;
   }
@@ -992,7 +1094,6 @@ function restoreAllData(input) {
 
 /* ═══════════════════════════════════════════════════════════════
    PEMULIHAN KAS DARI RIWAYAT TRANSAKSI
-   (Dipindahkan dari entities.js)
    ═══════════════════════════════════════════════════════════════ */
 function recalcKas(){
   const kas = {};
@@ -1003,7 +1104,6 @@ function recalcKas(){
     return dpp + (p.ppnPersen ? Math.round(dpp * p.ppnPersen / 100) : 0);
   };
 
-  /* Pembelian: uang keluar saat faktur dibuat (di luar pembayaran susulan) */
   const bayarKeFaktur = {};
   (S.pembayaran || []).forEach(b => {
     add(b.entity, -(b.jumlah || 0));
@@ -1015,7 +1115,6 @@ function recalcKas(){
     add(p.entity, -Math.max(0, paid - (bayarKeFaktur[p.id] || 0)));
   });
 
-  /* Penjualan: uang masuk saat faktur dibuat (di luar penerimaan susulan) */
   const terimaKeFaktur = {};
   (S.penerimaan || []).forEach(t => {
     add(t.entity, t.jumlah || 0);
@@ -1027,7 +1126,6 @@ function recalcKas(){
     add(p.entity, Math.max(0, paid - (terimaKeFaktur[p.id] || 0)));
   });
 
-  /* Kas kecil: "masuk" mengambil dari kas utama, "keluar" mengembalikan */
   Object.entries(S.kasKecil.perEntity || {}).forEach(([e, o]) =>
     (o.mutasi || []).forEach(m => add(e, (m.keluar || 0) - (m.masuk || 0))));
 

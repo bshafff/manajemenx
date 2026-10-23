@@ -1,4 +1,4 @@
-const CACHE = 'imb-v12';
+const CACHE = 'imb-v13';
 const SHELL = [
   './', './index.html', './style.css',
   './core.js', './entities.js', './auth.js', './import.js',

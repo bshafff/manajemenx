@@ -498,7 +498,7 @@ async function bootstrapSync(){
         if (d.pesanan)           S.pesanan    = d.pesanan;
         if (d.users?.length)     S.users      = d.users;
         
-        // FIX: Tarik data modul farm dari Google Sheet
+        // Tarik data modul farm dari Google Sheet
         if (d.produksi)          S.produksi   = d.produksi;
         if (d.panen)             S.panen      = d.panen;
         if (d.kandang)           S.kandang    = d.kandang;
@@ -543,7 +543,7 @@ function pushAllToSheet(){
   (S.permintaan||[]).forEach(p => push('permintaan', p));
   (S.pesanan||[]).forEach(p => push('pesanan', p));
   
-  // FIX: Kirim data modul farm ke Google Sheet
+  // Kirim data modul farm ke Google Sheet
   (S.produksi||[]).forEach(p => push('produksi', p));
   (S.panen||[]).forEach(p => push('panen', p));
   (S.kandang||[]).forEach(p => push('kandang', p));
@@ -701,13 +701,18 @@ function refreshView(id){
     penerimaan:() => typeof renderPenerimaan === 'function' && renderPenerimaan(),
     kaskecil:  () => typeof renderKasKecil === 'function' && renderKasKecil(),
     jurnal:    () => typeof renderJurnal === 'function' && renderJurnal(),
+    akun:      () => typeof renderAkun === 'function' && renderAkun(),
+    eksekutif: () => typeof renderEksekutif === 'function' && renderEksekutif(),
+    produksi:  () => typeof renderProduksi === 'function' && renderProduksi(),
+    panen:     () => typeof renderPanen === 'function' && renderPanen(),
+    kandang:   () => typeof renderKandang === 'function' && renderKandang(),
   };
   if (map[id]) map[id]();
 }
 
 function refreshAll(){
   Object.keys({
-    home:1, dashboard:1, barang:1, supplier:1, pelanggan:1, pembelian:1, penjualan:1, pembayaran:1, penerimaan:1, kaskecil:1, jurnal:1
+    home:1, dashboard:1, barang:1, supplier:1, pelanggan:1, pembelian:1, penjualan:1, pembayaran:1, penerimaan:1, kaskecil:1, jurnal:1, akun:1, eksekutif:1, produksi:1, panen:1, kandang:1
   }).forEach(refreshView);
   updateStatus();
   renderSidebar();
@@ -738,6 +743,9 @@ function renderHome(){
       </div>`;
     }).join('');
   }
+  
+  // Panggil fungsi filter menu akses
+  if (typeof applyMenuAccess === 'function') applyMenuAccess();
 }
 
 function renderLogin(){

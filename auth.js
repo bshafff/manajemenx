@@ -2,17 +2,16 @@
    AUTH — login PIN sederhana + role-based access
    ═══════════════════════════════════════════════════════════════ */
 
-/* ─── Role → modul yang boleh diakses ─── */
+/* ─── Role → modul default yang boleh diakses ─── */
 const ROLE_ACCESS = {
   owner:    ['*'],
-  manajer:  ['home','dashboard','barang','supplier','pelanggan',
+  manajer:  ['home','dashboard','eksekutif','barang','supplier','pelanggan',
              'pembelian','penjualan','pembayaran','penerimaan',
-             'transfer','kaskecil','permintaan','pesanan','stok',
-             'jurnal','aging'],
+             'kaskecil','jurnal','produksi','panen','kandang'],
   kasir:    ['home','dashboard','penjualan','pembayaran',
              'penerimaan','kaskecil'],
-  gudang:   ['home','dashboard','barang','stok','pembelian','permintaan'],
-  produksi: ['home','dashboard','stok','pesanan'],
+  gudang:   ['home','dashboard','barang','supplier','pembelian'],
+  produksi: ['home','dashboard','barang','produksi','panen','kandang'],
 };
 
 /* ─── Session ─── */
@@ -41,12 +40,21 @@ function logout(){
   location.reload();
 }
 
-/* ─── Access check ─── */
+/* ─── Access check (PENTING) ─── */
 function canAccess(moduleId){
   const u = currentUser();
   if (!u) return false;
+  
+  // 1. Owner selalu punya akses penuh
+  if (u.role === 'owner') return true;
+
+  // 2. Cek apakah user punya pengaturan custom (dari menu Kelola Akun)
+  if (Array.isArray(u.akses)) {
+    return u.akses.includes(moduleId);
+  }
+
+  // 3. Jika tidak ada custom, gunakan default role
   const allow = ROLE_ACCESS[u.role] || [];
-  if (allow.includes('*')) return true;
   return allow.includes(moduleId);
 }
 
@@ -77,7 +85,7 @@ function renderLogin(){
 
   w.innerHTML = `<div class="card welcome" style="text-align:left; padding: 40px 22px">
     
-    <!-- Bagian Welcome (Digabung ke sini) -->
+    <!-- Bagian Welcome -->
     <div style="text-align:center; margin-bottom: 28px;">
       <div class="ico" style="font-size:64px; margin-bottom:14px; filter:drop-shadow(0 4px 10px rgba(45,80,22,.2))">🌱</div>
       <h2 style="margin:0 0 8px; color:var(--green); font-size:24px; font-family:Fraunces; font-weight:600">Selamat Datang di IMB</h2>
@@ -119,6 +127,14 @@ function doLogin(){
   const pin  = document.getElementById('login-pin').value;
   const r = login(uid_, pin);
   if (!r.ok){ toast(r.msg, 'error'); return; }
+  
+  if (r.user.role !== 'owner') {
+    activeDiv = r.user.entity;
+  } else {
+    activeDiv = 'HQ';
+  }
+  localStorage[K_ACTIVE_DIV] = activeDiv;
+
   toast(`Halo, ${r.user.nama}`);
   setTimeout(() => location.reload(), 500);
 }
@@ -126,3 +142,4 @@ function doLogin(){
 window.renderLogin = renderLogin;
 window.doLogin = doLogin;
 window.logout = logout;
+window.canAccess = canAccess;

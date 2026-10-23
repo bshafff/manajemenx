@@ -1,6 +1,6 @@
 <div id="v-home" class="view">
   
-  <!-- Info User (Akan diisi otomatis oleh JS) -->
+  <!-- Info User -->
   <div id="user-card" class="card" style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
     <div class="ico" id="uc-ico" style="font-size:32px;">🏢</div>
     <div>
@@ -9,10 +9,23 @@
     </div>
   </div>
 
-  <!-- GRID DIVISI (Ini yang akan diisi otomatis oleh core.js) -->
+  <!-- GRID DIVISI -->
   <div class="section-label">PILIH DIVISI USAHA</div>
   <div id="home-div-grid" class="grid" style="grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px;">
     <!-- core.js akan merender 4 kartu divisi ke dalam sini -->
+  </div>
+
+  <!-- PENGATURAN SISTEM (Hanya muncul untuk owner) -->
+  <div class="section-label" id="sys-label">PENGATURAN SISTEM</div>
+  <div class="menu-list" id="sys-menu">
+    <div class="menu-card" onclick="openModule('akun')">
+      <div class="menu-icon" style="background:#e0e7ff;">👤</div>
+      <div class="menu-text">
+        <h3>Kelola Akun</h3>
+        <p>Buat akun baru, atur PIN, dan batasi akses menu</p>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
   </div>
 
   <!-- SECTION BACKUP DATA -->

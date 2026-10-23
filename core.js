@@ -507,8 +507,8 @@ async function checkAppUpdate(isManual = false) {
       if (isManual) toast('Versi baru tersedia! Klik tombol biru untuk update.');
     } else {
       btn.innerHTML = '⬇ Update';
-      btn.style.background = 'rgba(255,255,255,0.15)';
-      btn.style.color = 'rgba(255,255,255,0.9)';
+      btn.style.background = '#e5e7eb';
+      btn.style.color = '#374151';
       btn.style.border = 'none';
       btn.style.cursor = 'pointer';
       if (isManual) toast(`✓ Sudah versi terbaru (v${latestVer})`);

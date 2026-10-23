@@ -327,7 +327,6 @@ async function flush(){
       try {
         const res = await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(q[0]) });
         const txt = await res.text();
-        // FIX: Tangani jika txt "err: ..." dari server agar tidak looping
         if (txt.trim() !== 'ok') {
           console.error("Sync Server Error:", txt);
           break; 
@@ -498,7 +497,6 @@ async function bootstrapSync(){
         if (d.pesanan)           S.pesanan    = d.pesanan;
         if (d.users?.length)     S.users      = d.users;
         
-        // Tarik data modul farm dari Google Sheet
         if (d.produksi)          S.produksi   = d.produksi;
         if (d.panen)             S.panen      = d.panen;
         if (d.kandang)           S.kandang    = d.kandang;
@@ -516,6 +514,10 @@ async function bootstrapSync(){
           S.kasKecil.perEntity = per;
         }
         migrate();
+        
+        // PENTING: Hitung ulang kas karena data dari Sheet tidak menyimpan saldo kas (hanya transaksi)
+        recalcKas();
+        
         persist(); refreshAll();
         trackSync();
         toast('✓ Data dimuat dari Sheet');
@@ -543,7 +545,6 @@ function pushAllToSheet(){
   (S.permintaan||[]).forEach(p => push('permintaan', p));
   (S.pesanan||[]).forEach(p => push('pesanan', p));
   
-  // Kirim data modul farm ke Google Sheet
   (S.produksi||[]).forEach(p => push('produksi', p));
   (S.panen||[]).forEach(p => push('panen', p));
   (S.kandang||[]).forEach(p => push('kandang', p));
@@ -725,7 +726,7 @@ function refreshAll(){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   HOME & LOGIN
+   HOME
    ═══════════════════════════════════════════════════════════════ */
 function renderHome(){
   const u = currentUser(); if (!u) return;
@@ -762,69 +763,6 @@ function renderHome(){
   
   if (typeof applyMenuAccess === 'function') applyMenuAccess();
 }
-
-function renderLogin(){
-  const w = document.getElementById('welcome');
-  const m = document.getElementById('m');
-  const nav = document.getElementById('nav');
-  const sb = document.getElementById('sidebar');
-  const hb = document.getElementById('hdr-btns');
-  if (!w) return;
-  
-  if (m) m.style.display = 'none';
-  if (nav) nav.style.display = 'none';
-  if (sb) sb.style.display = 'none';
-  if (hb) hb.style.display = 'none';
-  w.style.display = 'block';
-
-  const users = S.users || [];
-  if (!users.length){
-    w.innerHTML = `<div class="card welcome">
-      <div class="ico">⚠️</div><h2>Belum ada user</h2><p>Hubungi admin.</p>
-    </div>`;
-    return;
-  }
-
-  w.innerHTML = `<div class="card welcome" style="text-align:left; padding: 40px 22px">
-    <div style="text-align:center; margin-bottom: 28px;">
-      <div class="ico" style="font-size:64px; margin-bottom:14px; filter:drop-shadow(0 4px 10px rgba(45,80,22,.2))">🌱</div>
-      <h2 style="margin:0 0 8px; color:var(--green); font-size:24px; font-family:Fraunces; font-weight:600">Selamat Datang di IMB</h2>
-      <p style="color:var(--mute); font-size:13.5px; margin:0; line-height:1.6">
-        PT. Insan Muda Berdikari<br>Sistem manajemen terpadu<br>
-        🍓 Stroberi · 🥛 Dairy · 🐔 Ayam · 🌾 Pakan Ayam
-      </p>
-    </div>
-    <label>Pilih Akun</label>
-    <select id="login-user" style="margin-bottom: 12px;">
-      ${users.map(u => {
-        const e = entInfo(u.entity);
-        return `<option value="${u.id}">${e.ico} ${esc(u.nama)} (${e.kode})</option>`;
-      }).join('')}
-    </select>
-    <label>PIN</label>
-    <input id="login-pin" type="password" inputmode="numeric" maxlength="6" placeholder="••••" onkeydown="if(event.key==='Enter')doLogin()">
-    <button class="btn btn-p" style="width:100%; margin-top:20px" onclick="doLogin()">Masuk</button>
-  </div>`;
-}
-
-function doLogin(){
-  const uid_ = document.getElementById('login-user').value;
-  const pin  = document.getElementById('login-pin').value;
-  const r = login(uid_, pin);
-  if (!r.ok){ toast(r.msg, 'error'); return; }
-  
-  if (r.user.role !== 'owner') {
-    activeDiv = r.user.entity;
-  } else {
-    activeDiv = 'HQ';
-  }
-  localStorage[K_ACTIVE_DIV] = activeDiv;
-
-  toast(`Halo, ${r.user.nama}`);
-  setTimeout(() => location.reload(), 500);
-}
-
-function renderWelcome(){ renderLogin(); }
 
 function hideWelcome(){
   const w = document.getElementById('welcome');
@@ -959,7 +897,8 @@ function boot(){
   if (!hasUrl()){ localStorage[K_URL] = DEFAULT_URL; }
 
   if (!isLoggedIn()){
-    renderLogin();
+    // renderLogin() akan memanggil fungsi dari auth.js
+    if (typeof renderLogin === 'function') renderLogin();
     return;
   }
 
@@ -996,7 +935,7 @@ function backupAllData() {
       _app: 'IMB_ERP',
       _version: '1.0',
       _exported_at: new Date().toISOString(),
-      state: S // Simpan seluruh object state S
+      state: S
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -1034,9 +973,8 @@ function restoreAllData(input) {
         throw new Error('Format file tidak dikenali. Pastikan ini file backup IMB ERP.');
       }
 
-      // Replace current state with backup
       S = data.state;
-      persist(); // Save to localStorage
+      persist();
 
       toast('✅ Data berhasil direstore! Memuat ulang aplikasi...');
       setTimeout(() => {
@@ -1050,4 +988,51 @@ function restoreAllData(input) {
     }
   };
   reader.readAsText(file);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PEMULIHAN KAS DARI RIWAYAT TRANSAKSI
+   (Dipindahkan dari entities.js)
+   ═══════════════════════════════════════════════════════════════ */
+function recalcKas(){
+  const kas = {};
+  Object.keys(ENTITIES).forEach(k => kas[k] = 0);
+  const add = (e, v) => { const k = e || 'HQ'; kas[k] = (kas[k] || 0) + v; };
+  const totalFaktur = p => {
+    const dpp = sum(p.items || [], i => i.qty * i.harga);
+    return dpp + (p.ppnPersen ? Math.round(dpp * p.ppnPersen / 100) : 0);
+  };
+
+  /* Pembelian: uang keluar saat faktur dibuat (di luar pembayaran susulan) */
+  const bayarKeFaktur = {};
+  (S.pembayaran || []).forEach(b => {
+    add(b.entity, -(b.jumlah || 0));
+    (b.fakturLinks || []).forEach(l => bayarKeFaktur[l.id] = (bayarKeFaktur[l.id] || 0) + l.jumlah);
+  });
+  S.pembelian.forEach(p => {
+    const total = totalFaktur(p);
+    const paid = p.dibayar != null ? p.dibayar : (p.status === 'lunas' ? total : 0);
+    add(p.entity, -Math.max(0, paid - (bayarKeFaktur[p.id] || 0)));
+  });
+
+  /* Penjualan: uang masuk saat faktur dibuat (di luar penerimaan susulan) */
+  const terimaKeFaktur = {};
+  (S.penerimaan || []).forEach(t => {
+    add(t.entity, t.jumlah || 0);
+    (t.fakturLinks || []).forEach(l => terimaKeFaktur[l.id] = (terimaKeFaktur[l.id] || 0) + l.jumlah);
+  });
+  S.penjualan.forEach(p => {
+    const total = totalFaktur(p);
+    const paid = p.dibayar != null ? p.dibayar : (p.status === 'lunas' ? total : 0);
+    add(p.entity, Math.max(0, paid - (terimaKeFaktur[p.id] || 0)));
+  });
+
+  /* Kas kecil: "masuk" mengambil dari kas utama, "keluar" mengembalikan */
+  Object.entries(S.kasKecil.perEntity || {}).forEach(([e, o]) =>
+    (o.mutasi || []).forEach(m => add(e, (m.keluar || 0) - (m.masuk || 0))));
+
+  Object.keys(kas).forEach(k => {
+    if (!S.entities[k]) S.entities[k] = { kas: 0 };
+    S.entities[k].kas = kas[k];
+  });
 }

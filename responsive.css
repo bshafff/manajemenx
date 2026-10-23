@@ -1,0 +1,123 @@
+/* ═══════════════════════════════════════════════════════════════
+   responsive.css — muat SETELAH style.css
+   Tujuan: nyaman di HP, iPad (portrait & landscape), laptop.
+   Tidak mengubah style.css; semua bersifat tambahan/override.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ───────── 1. Header ringkas + sticky (status sync selalu terlihat) ───────── */
+header{
+  position:sticky;top:0;z-index:55;
+  display:flex;align-items:center;gap:10px;text-align:left;
+  padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
+}
+.hdr-logo{font-size:24px;margin:0;filter:none}
+header h1{font-size:18px;margin:0}
+.hdr-sub,.hdr-version{display:none}
+.hdr-status{
+  margin:0 0 0 auto;font-size:12px;line-height:1.25;text-align:right;
+  max-width:62%;
+}
+.hdr-btns{padding:8px 12px;gap:8px}
+.hdr-btn{padding:9px 10px;font-size:13px;box-shadow:none}
+/* "Putuskan" dibuat tidak mencolok agar tidak tertekan tidak sengaja */
+.hdr-btn-disc{flex:0 0 auto;background:transparent;color:#991b1b;border:1px solid #fca5a5}
+
+/* Penanda offline: header berubah warna */
+body.offline header{background:linear-gradient(135deg,#7f1d1d 0%,#b45309 100%)}
+
+/* ───────── 2. Form: cegah auto-zoom iOS & target sentuh ≥ 44px ───────── */
+@media (max-width:899px){
+  input,select,textarea,
+  .form-grid input,.form-grid select{font-size:16px}
+  main{
+    padding-left:max(14px,env(safe-area-inset-left));
+    padding-right:max(14px,env(safe-area-inset-right));
+  }
+}
+@media (pointer:coarse){
+  .btn,.hdr-btn{min-height:44px}
+  .btn-sm{min-height:40px}
+  .ibtn{width:40px;height:40px;font-size:17px}
+  .mx{min-width:44px;min-height:44px}
+  nav button{min-height:56px}
+}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
+  outline:2px solid var(--blue);outline-offset:2px;
+}
+
+/* ───────── 3. Baris item faktur (.irow) — sebelumnya tanpa CSS ───────── */
+.irow{
+  display:grid;grid-template-columns:minmax(0,1fr) 84px 120px 44px;
+  gap:8px;align-items:center;margin-bottom:8px;
+}
+.irow .x2{
+  height:44px;border-radius:8px;background:#fee2e2;color:#b91c1c;font-size:15px;
+}
+@media (max-width:520px){
+  .irow{grid-template-columns:84px minmax(0,1fr) 44px}
+  .irow select{grid-column:1 / -1}
+}
+
+/* ───────── 4. Modal: tinggi aman iOS + tombol aksi selalu terlihat ───────── */
+.mc{max-height:92vh;max-height:92dvh}
+.mfoot{
+  position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);
+  margin:20px -20px calc(-20px - env(safe-area-inset-bottom));
+  padding:12px 20px calc(12px + env(safe-area-inset-bottom));
+}
+
+/* ───────── 5. Tablet (iPad portrait ±744–834px) ───────── */
+@media (min-width:700px) and (max-width:899px){
+  main{max-width:860px;padding-top:20px;padding-bottom:20px}
+  #home-div-grid{grid-template-columns:repeat(4,1fr) !important}
+  .chart-grid{grid-template-columns:repeat(2,1fr)}
+  nav button{font-size:12px}
+  .hdr-sub{display:block;font-size:12px;opacity:.85}
+}
+
+/* ───────── 6. Grid: tidak sempit di HP / iPad landscape ───────── */
+@media (max-width:520px){
+  .grid3{grid-template-columns:1fr 1fr}
+  .grid3 > :last-child:nth-child(odd){grid-column:1 / -1}
+}
+/* Konten desktop = layar − sidebar 260px, jadi 3 grafik terlalu sempit di <1280px */
+@media (min-width:900px) and (max-width:1279px){
+  .chart-grid{grid-template-columns:repeat(2,1fr)}
+  main{padding:24px 28px 48px}
+}
+
+/* ───────── 7. Desktop: header slim, bukan banner raksasa ───────── */
+@media (min-width:900px){
+  header{padding:14px 40px}
+  .hdr-logo{font-size:28px;margin:0}
+  header h1{font-size:22px}
+  .hdr-sub{display:block;font-size:13px;margin:0 0 0 4px;opacity:.85}
+  .hdr-version{display:block;font-size:11px;margin:0 0 0 14px;opacity:.7}
+  .hdr-status{font-size:13px;margin:0 0 0 auto;max-width:none}
+  .hdr-btns{padding:12px 40px}
+  .hdr-btn{padding:11px 20px;font-size:14px;min-width:120px;border-radius:10px}
+}
+
+/* ───────── 8. Tabel → kartu di layar sempit (class .stack dipasang ui.js) ───────── */
+@media (max-width:640px){
+  .table-wrap{margin:0;padding:0;overflow:visible}
+  .table-wrap table{min-width:0}
+  table.stack thead{display:none}
+  table.stack,table.stack tbody,table.stack tfoot,
+  table.stack tr,table.stack td{display:block;width:100%}
+  table.stack tr{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:8px 12px;margin-bottom:10px;
+  }
+  table.stack td{
+    display:flex;justify-content:space-between;align-items:center;gap:12px;
+    padding:6px 0;border:0;text-align:right;
+  }
+  table.stack td::before{
+    content:attr(data-label);flex:none;text-align:left;color:var(--mute);
+    font-size:11.5px;text-transform:uppercase;letter-spacing:.3px;font-weight:700;
+  }
+  table.stack td[data-label=""]::before{content:none}
+  table.stack td.tb-actions{justify-content:flex-end}
+  table.stack td.tb-actions::before{content:none}
+}

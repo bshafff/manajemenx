@@ -1,4 +1,4 @@
-const CACHE = 'imb-v23';
+const CACHE = 'imb-v22';
 const SHELL = [
   './', './index.html', './style.css',
   './core.js', './auth.js', './import.js',
@@ -13,6 +13,7 @@ const SHELL = [
   './kaskecil.html', './jurnal.html',
   './produksi.html', './panen.html', './kandang.html', './akun.html', './eksekutif.html',
   './manifest.json', './icon.svg', './version.json',
+  './responsive.css', './ui.js', './chart.umd.js',
 ];
 
 self.addEventListener('install', e => {

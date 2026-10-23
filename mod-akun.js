@@ -2,27 +2,52 @@
    KELOLA AKUN — tambah/ubah/hapus akun, atur entitas & akses menu
    Hanya owner. Menu Home & navigasi mengikuti akses akun yang login.
    ═══════════════════════════════════════════════════════════════ */
+
 const MOD_LIST = [
-  ['dashboard','📊 Ringkasan'], ['eksekutif','🧭 Ringkasan Eksekutif'], ['barang','📦 Barang'], ['supplier','🚚 Supplier'],
-  ['pelanggan','👥 Pelanggan'], ['pembelian','🛒 Pembelian'], ['penjualan','🧾 Penjualan'],
-  ['penerimaan','💰 Penerimaan'], ['pembayaran','💸 Pembayaran'], ['kaskecil','👛 Kas Kecil'],
-  ['jurnal','📒 Jurnal'], ['produksi','🏭 Produksi'], ['panen','🍓 Panen'], ['kandang','🐔 Kandang'],
+  ['dashboard','📊 Ringkasan'], 
+  ['eksekutif','🧭 Ringkasan Eksekutif'], 
+  ['barang','📦 Barang'], 
+  ['supplier','🚚 Supplier'],
+  ['pelanggan','👥 Pelanggan'], 
+  ['pembelian','🛒 Pembelian'], 
+  ['penjualan','🧾 Penjualan'],
+  ['penerimaan','💰 Penerimaan'], 
+  ['pembayaran','💸 Pembayaran'], 
+  ['kaskecil','👛 Kas Kecil'],
+  ['jurnal','📒 Jurnal'], 
+  ['produksi','🏭 Produksi'], 
+  ['panen','🍓 Panen'], 
+  ['kandang','🐔 Kandang'],
 ];
+
 const ROLES = ['owner','manajer','kasir','gudang','produksi'];
+
+// Mengambil default menu berdasarkan role (abaikan 'home' & '*' karena otomatis)
 const roleDefault = r => (ROLE_ACCESS[r] || []).filter(x => x !== 'home' && x !== '*');
-const userMods = u => u.role === 'owner' ? MOD_LIST.map(m => m[0]) : (Array.isArray(u.akses) ? u.akses : roleDefault(u.role));
+
+// Mengambil menu yang aktif untuk user (custom atau default)
+const userMods = u => {
+  if (u.role === 'owner') return MOD_LIST.map(m => m[0]);
+  if (Array.isArray(u.akses)) return u.akses;
+  return roleDefault(u.role);
+};
 
 function akFillMods(role){
   const def = role === 'owner' ? MOD_LIST.map(m => m[0]) : roleDefault(role);
   MOD_LIST.forEach(([k]) => {
     const c = document.getElementById('ak-m-' + k);
-    c.checked = def.includes(k); c.disabled = role === 'owner';
+    if (c) {
+      c.checked = def.includes(k); 
+      c.disabled = role === 'owner';
+    }
   });
 }
+
 function akModal(id){
   const u = id ? S.users.find(x => x.id === id) : null;
   const role = u ? u.role : 'manajer';
   const mods = u ? userMods(u) : roleDefault(role);
+  
   openModal(u ? '✏️ Ubah Akun' : '➕ Akun Baru', 'Atur siapa boleh membuka menu apa', `
     <div class="form-grid">
       <div><label>Nama</label><input id="ak-nama" value="${u ? esc(u.nama) : ''}" placeholder="Nama staf"></div>
@@ -36,14 +61,19 @@ function akModal(id){
     <div class="hint">Role mengisi pilihan awal; centang manual untuk menyesuaikan. Owner selalu akses penuh.</div>`,
     () => akSave(id), 'Simpan');
 }
+
 function akSave(id){
   const nama = val('ak-nama'), pin = val('ak-pin'), role = val('ak-role'), entity = val('ak-ent');
   if (!nama) return toast('Nama wajib diisi', 'error');
   if (!/^\d{4,6}$/.test(pin)) return toast('PIN harus 4–6 angka', 'error');
+  
   const sel = MOD_LIST.map(m => m[0]).filter(k => document.getElementById('ak-m-' + k).checked);
   const def = roleDefault(role);
+  
+  // Jika centang manual sama persis dengan default role, jadikan null (menghemat memori & sync)
   const sama = sel.length === def.length && sel.every(k => def.includes(k));
   const akses = role === 'owner' || sama ? null : sel;
+  
   let u = id ? S.users.find(x => x.id === id) : null;
   if (u){
     if (u.role === 'owner' && role !== 'owner' && S.users.filter(x => x.role === 'owner').length < 2)
@@ -53,26 +83,39 @@ function akSave(id){
     u = { id: uid(), nama, pin, role, entity, akses };
     S.users.push(u);
   }
-  persist(); farmQueue('users', 'upsert', u);
-  closeModal(); renderAkun(); refreshAll(); renderNav(); toast('✓ Akun disimpan');
+  persist(); 
+  if (typeof farmQueue === 'function') farmQueue('users', 'upsert', u);
+  
+  closeModal(); 
+  renderAkun(); 
+  refreshAll(); 
+  renderSidebar(); 
+  toast('✓ Akun disimpan');
 }
+
 function akDel(id){
   const u = S.users.find(x => x.id === id); if (!u) return;
   if (u.id === currentUser().id) return toast('Tidak bisa menghapus akun yang sedang dipakai', 'error');
   if (u.role === 'owner' && S.users.filter(x => x.role === 'owner').length < 2)
     return toast('Harus ada minimal satu owner', 'error');
   if (!confirm(`Hapus akun ${u.nama}?`)) return;
+  
   S.users = S.users.filter(x => x.id !== id);
-  persist(); farmQueue('users', 'delete', null, id); renderAkun();
+  persist(); 
+  if (typeof farmQueue === 'function') farmQueue('users', 'delete', null, id); 
+  renderAkun();
 }
+
 function renderAkun(){
   const el = document.getElementById('akun-root'); if (!el) return;
   if (!canAccess('akun')){ el.innerHTML = ''; return; }
-  /* sekali: kirim akun yang sudah ada (termasuk bawaan) ke Sheet */
-  if (SYNC_NEW && !localStorage.imb_users_synced){
-    S.users.forEach(u => farmQueue('users', 'upsert', u));
+  
+  /* Kirim akun ke Sheet jika belum (sekali saja) */
+  if (typeof SYNC_NEW !== 'undefined' && SYNC_NEW && !localStorage.imb_users_synced){
+    if (typeof farmQueue === 'function') S.users.forEach(u => farmQueue('users', 'upsert', u));
     localStorage.imb_users_synced = '1';
   }
+  
   el.innerHTML = `<div class="card"><div class="card-header-flex"><h3>👤 Kelola Akun</h3>
     <button class="btn btn-p btn-sm" onclick="akModal()">+ Akun</button></div>
     <div class="hint">${S.users.length} akun · PIN disimpan apa adanya, ganti PIN bawaan sebelum dipakai sungguhan.</div>
@@ -103,4 +146,5 @@ function applyMenuAccess(){
   });
   flush();
 }
+
 Object.assign(window, { akModal, akFillMods, akSave, akDel, renderAkun, applyMenuAccess });

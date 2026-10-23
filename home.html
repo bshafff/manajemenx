@@ -1,59 +1,32 @@
 <div id="v-home" class="view">
-  <div class="menu-section-title">PILIH MENU</div>
-  <div class="menu-list">
-    <div class="menu-card" onclick="openModule('dashboard')">
-      <div class="menu-icon" style="background:#fee2e2;">📊</div>
-      <div class="menu-text">
-        <h3>Dashboard Panen</h3>
-        <p>Statistik panen, reject & pengiriman per bulan</p>
-      </div>
-      <span class="menu-arrow">›</span>
-    </div>
-    <div class="menu-card" onclick="openModule('dash-mika')">
-      <div class="menu-icon" style="background:#f3e8ff;">🍓</div>
-      <div class="menu-text">
-        <h3>Dashboard Mika</h3>
-        <p>Stok harian mika, layer, sleeve, stiker & netfoam</p>
-      </div>
-      <span class="menu-arrow">›</span>
-    </div>
-    <div class="menu-card" onclick="openModule('lks')">
-      <div class="menu-icon" style="background:#dcfce7;">📝</div>
-      <div class="menu-text">
-        <h3>Form Kerja Harian (LKS)</h3>
-        <p>Catat kegiatan, material & keterangan pekerja harian</p>
-      </div>
-      <span class="menu-arrow">›</span>
-    </div>
-    <div class="menu-card" onclick="openModule('panen')">
-      <div class="menu-icon" style="background:#fef3c7;">🌾</div>
-      <div class="menu-text">
-        <h3>Rekap Panen & Sortir</h3>
-        <p>Panen per grade, reject kebun/processing & pengiriman</p>
-      </div>
-      <span class="menu-arrow">›</span>
-    </div>
-    <div class="menu-card" onclick="openModule('kemasan')">
-      <div class="menu-icon" style="background:#dbeafe;">📦</div>
-      <div class="menu-text">
-        <h3>Stok Kemasan (Mika)</h3>
-        <p>Input harian, ringkasan stok, selisih bongkar & rekap bulanan</p>
-      </div>
-      <span class="menu-arrow">›</span>
+  
+  <!-- Info User (Akan diisi otomatis oleh JS) -->
+  <div id="user-card" class="card" style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+    <div class="ico" id="uc-ico" style="font-size:32px;">🏢</div>
+    <div>
+      <div style="font-weight:700; font-size:16px;" id="uc-nama">Memuat...</div>
+      <div class="hint" style="margin:0" id="uc-info">...</div>
     </div>
   </div>
 
-  <!-- ================= SECTION BACKUP DATA ================= -->
+  <!-- GRID DIVISI (Ini yang akan diisi otomatis oleh core.js) -->
+  <div class="section-label">PILIH DIVISI USAHA</div>
+  <div id="home-div-grid" class="grid" style="grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px;">
+    <!-- core.js akan merender 4 kartu divisi ke dalam sini -->
+  </div>
+
+  <!-- SECTION BACKUP DATA -->
   <div class="card" style="margin-top: 2rem; background: #f8fafc; border: 1px dashed #cbd5e1;">
-    <div class="card-title" style="border-bottom: none; margin-bottom: 0.5rem; color: #475569;">💾 Backup & Restore Data</div>
-    <div class="info-box" style="margin-bottom: 1rem; background: #fffbeb; border-left-color: #f59e0b; color: #78350f;">
-      Simpan file JSON ini di HP/Laptop kamu secara berkala. Jika data di aplikasi hilang, kamu bisa memulihkannya dari file ini.
+    <div class="card-title" style="border-bottom: none; margin-bottom: 0.5rem; color: #475569; font-weight:700;">💾 Backup & Restore Data</div>
+    <div class="info-box" style="margin-bottom: 1rem; background: #fffbeb; border-left: 4px solid #f59e0b; padding: 10px; font-size: 12.5px; color: #78350f; border-radius: 4px;">
+      Simpan file JSON ini secara berkala. Jika data di aplikasi hilang, kamu bisa memulihkannya dari file ini.
     </div>
     <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-      <button class="btn btn-secondary" onclick="backupAllData()" style="flex: 1;">📥 Backup ke File (.json)</button>
+      <button class="btn btn-s" onclick="backupAllData()" style="flex: 1;">📥 Backup ke File (.json)</button>
       
       <input type="file" id="restore-file" accept=".json" style="display: none;" onchange="restoreAllData(this)">
-      <button class="btn btn-primary" onclick="document.getElementById('restore-file').click()" style="flex: 1; background:#0284c7;">📤 Restore dari File</button>
+      <button class="btn btn-p" onclick="document.getElementById('restore-file').click()" style="flex: 1; background:#0284c7;">📤 Restore dari File</button>
     </div>
   </div>
+  
 </div>

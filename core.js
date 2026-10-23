@@ -1,7 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════
    KONFIGURASI
    ═══════════════════════════════════════════════════════════════ */
-// URL Baru dari Deploy Ulang Apps Script
 const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwHzvNoZcxGHl84H4lJk8lhDMZy85_Pq58Ea-OFnqjAnQBaguSz7nfNiz2K767Gg1S_/exec';
 const API_KEY = 'ERP_2026';
 const PPN_DEFAULT = 11;
@@ -45,26 +44,43 @@ function toast(msg, type, ms){
   window._tt = setTimeout(() => t.style.display = 'none', ms || 2200);
 }
 
+/* ID Perangkat Unik untuk Penomoran Dokumen */
+function getDeviceId(){
+  let id = localStorage.getItem('erp_device_id');
+  if (!id) {
+    id = Math.random().toString(36).substring(2, 5).toUpperCase();
+    localStorage.setItem('erp_device_id', id);
+  }
+  return id;
+}
+
+/* Generator Nomor Dokumen Anti-Kembar */
+function genDocNo(prefix){
+  const d = new Date();
+  const yy = String(d.getFullYear()).slice(-2);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dev = getDeviceId();
+  const seq = String(Date.now()).slice(-4); // 4 digit terakhir waktu
+  return `${prefix}-${yy}${mm}-${dev}-${seq}`;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    STORAGE
    ═══════════════════════════════════════════════════════════════ */
 const K_URL        = 'erp_url';
 const K_DATA       = 'erp_data_v6';
 const K_QUEUE      = 'erp_queue_v2';
-const K_FAILED     = 'erp_failed';      // operasi yang gagal 5x (tidak memblokir antrian)
+const K_FAILED     = 'erp_failed';
 const K_BOOT       = 'erp_bootstrapped';
 const K_SESSION    = 'erp_session';
 const K_ACTIVE_DIV = 'erp_active_div';
-const K_SERVER_TIME= 'erp_server_time'; // Waktu terakhir data ditarik dari server (HANYA diisi oleh bootstrapSync)
+const K_SERVER_TIME= 'erp_server_time';
 
 const getUrl   = () => localStorage[K_URL] || '';
 const hasUrl   = () => !!localStorage[K_URL];
-const getQueue = () => { try { return JSON.parse(localStorage[K_QUEUE] || '[]'); }
-                         catch { return []; } };
+const getQueue = () => { try { return JSON.parse(localStorage[K_QUEUE] || '[]'); } catch { return []; } };
 const setQueue = q => { localStorage[K_QUEUE] = JSON.stringify(q); updateStatus(); };
-
-const getFailed = () => { try { return JSON.parse(localStorage[K_FAILED] || '[]'); }
-                          catch { return []; } };
+const getFailed = () => { try { return JSON.parse(localStorage[K_FAILED] || '[]'); } catch { return []; } };
 const failedCount = () => getFailed().length;
 
 /* ═══════════════════════════════════════════════════════════════
@@ -72,23 +88,11 @@ const failedCount = () => getFailed().length;
    ═══════════════════════════════════════════════════════════════ */
 function seed(){
   return {
-    entities: {
-      HQ: { kas: 0 }, SB: { kas: 0 }, DR: { kas: 0 },
-      AY: { kas: 0 }, PK: { kas: 0 },
-    },
-    kasKecil: {
-      perEntity: {
-        HQ:{saldo:0,mutasi:[]}, SB:{saldo:0,mutasi:[]}, DR:{saldo:0,mutasi:[]},
-        AY:{saldo:0,mutasi:[]}, PK:{saldo:0,mutasi:[]},
-      }
-    },
+    entities: { HQ: { kas: 0 }, SB: { kas: 0 }, DR: { kas: 0 }, AY: { kas: 0 }, PK: { kas: 0 } },
+    kasKecil: { perEntity: { HQ:{saldo:0,mutasi:[]}, SB:{saldo:0,mutasi:[]}, DR:{saldo:0,mutasi:[]}, AY:{saldo:0,mutasi:[]}, PK:{saldo:0,mutasi:[]} } },
     barang: [], supplier: [], pelanggan: [],
-    pembelian: [], penjualan: [],
-    pembayaran: [], penerimaan: [],
-    transfer: [],
-    permintaan: [], pesanan: [],
-    jurnalUmum: [],
-    // Modul Farm
+    pembelian: [], penjualan: [], pembayaran: [], penerimaan: [],
+    transfer: [], permintaan: [], pesanan: [], jurnalUmum: [],
     produksi: [], panen: [], kandang: [], kandangLog: [],
     users: [
       { id:'u-owner',  nama:'Owner',      role:'owner',   entity:'HQ', pin:'1234' },
@@ -106,10 +110,7 @@ catch { S = seed(); }
 
 function migrate(){
   let changed = false;
-  if (!S.entities){
-    S.entities = { HQ: { kas: S.kas || 0 }, SB: { kas: 0 }, DR: { kas: 0 }, AY: { kas: 0 }, PK: { kas: 0 } };
-    delete S.kas; changed = true;
-  }
+  if (!S.entities){ S.entities = { HQ: { kas: S.kas || 0 }, SB: { kas: 0 }, DR: { kas: 0 }, AY: { kas: 0 }, PK: { kas: 0 } }; delete S.kas; changed = true; }
   ['HQ','SB','DR','AY','PK'].forEach(k => {
     if (!S.entities[k]){ S.entities[k] = { kas: 0 }; changed = true; }
     if (typeof S.entities[k].kas !== 'number'){ S.entities[k].kas = 0; changed = true; }
@@ -119,11 +120,6 @@ function migrate(){
   if (!S.kasKecil.perEntity){
     const per = {};
     ['HQ','SB','DR','AY','PK'].forEach(k => per[k] = { saldo: 0, mutasi: [] });
-    if (typeof S.kasKecil.saldo === 'number'){
-      per.HQ.saldo = S.kasKecil.saldo || 0;
-      per.HQ.mutasi = Array.isArray(S.kasKecil.mutasi)
-        ? S.kasKecil.mutasi.map(m => ({ ...m, entity: m.entity || 'HQ' })) : [];
-    }
     S.kasKecil = { perEntity: per }; changed = true;
   }
   ['HQ','SB','DR','AY','PK'].forEach(k => {
@@ -148,13 +144,33 @@ function migrate(){
   ['pembelian','penjualan','pembayaran','penerimaan','permintaan','pesanan','transfer'].forEach(key => {
     (S[key] || []).forEach(r => { if (!r.entity){ r.entity = 'HQ'; changed = true; } });
   });
+
+  // PENTING: Migrasi stok lama ke stokAwal (sekali saja)
   (S.barang || []).forEach(b => {
     if (!b.lini){ b.lini = (b.kode || '').split('-')[0] || 'SB'; if (!LINI[b.lini]) b.lini = 'SB'; changed = true; }
+    if (b.stokAwal === undefined) {
+      // Jika stokAwal belum ada, kita asumsikan stok saat ini adalah stok akhir.
+      // Kita hitung mundur mutasinya untuk mendapatkan stokAwal.
+      let mutasi = 0;
+      S.pembelian.forEach(p => p.items.forEach(i => { if (i.barangId === b.id) mutasi += i.qty; }));
+      S.penjualan.forEach(p => p.items.forEach(i => { if (i.barangId === b.id) mutasi -= i.qty; }));
+      S.produksi.forEach(w => {
+        (w.bahan||[]).forEach(i => { if (i.barangId === b.id) mutasi -= i.qty; });
+        (w.output||[]).forEach(i => { if (i.barangId === b.id) mutasi += i.qty; });
+      });
+      S.panen.forEach(h => (h.items||[]).forEach(i => { if (i.barangId === b.id) mutasi += i.qty; }));
+      
+      b.stokAwal = (b.stok || 0) - mutasi;
+      changed = true;
+    }
   });
 
   if (changed){ localStorage[K_DATA] = JSON.stringify(S); }
 }
 migrate();
+
+// PANGGIL FUNGSI INI SAAT APLIKASI DIBUKA UNTUK SINKRONISASI STOK
+recalcStok();
 
 function persist(){
   localStorage[K_DATA] = JSON.stringify(S);
@@ -176,21 +192,13 @@ const entInfo = k => ENTITIES[k] || { kode:k, nama:k||'?', ico:'•', warna:'#88
 let activeDiv = localStorage[K_ACTIVE_DIV] || 'HQ';
 
 function enterDiv(div){
-  activeDiv = div;
-  localStorage[K_ACTIVE_DIV] = div;
-  view = 'dashboard';
-  closeModal();
-  window.scrollTo(0,0);
-  boot();
+  activeDiv = div; localStorage[K_ACTIVE_DIV] = div;
+  view = 'dashboard'; closeModal(); window.scrollTo(0,0); boot();
 }
 
 function exitDiv(){
-  activeDiv = 'HQ';
-  localStorage[K_ACTIVE_DIV] = 'HQ';
-  view = 'home';
-  closeModal();
-  window.scrollTo(0,0);
-  boot();
+  activeDiv = 'HQ'; localStorage[K_ACTIVE_DIV] = 'HQ';
+  view = 'home'; closeModal(); window.scrollTo(0,0); boot();
 }
 
 function visibleEntities(){
@@ -218,9 +226,7 @@ function addKas(k, d){
   if (!S.entities[k]) S.entities[k] = { kas: 0 };
   S.entities[k].kas += d;
 }
-function totalKas(){
-  return Object.keys(ENTITIES).reduce((s,k) => s + kasOf(k), 0);
-}
+function totalKas(){ return Object.keys(ENTITIES).reduce((s,k) => s + kasOf(k), 0); }
 
 /* Kas kecil */
 function kkOf(k){
@@ -229,9 +235,7 @@ function kkOf(k){
   return S.kasKecil.perEntity[k];
 }
 function kkSaldo(k){ return kkOf(k).saldo; }
-function totalKK(){
-  return Object.keys(ENTITIES).reduce((s,k) => s + kkSaldo(k), 0);
-}
+function totalKK(){ return Object.keys(ENTITIES).reduce((s,k) => s + kkSaldo(k), 0); }
 
 /* ═══════════════════════════════════════════════════════════════
    BUSINESS LOGIC
@@ -257,11 +261,8 @@ function labaRugiEnt(kode){
   const filt = x => kode === 'ALL' || x.entity === kode;
   const penj = S.penjualan.filter(filt);
   let kkJ = [];
-  if (kode === 'ALL'){
-    kkJ = Object.values(S.kasKecil.perEntity || {}).flatMap(x => x.mutasi || []);
-  } else {
-    kkJ = (S.kasKecil.perEntity?.[kode]?.mutasi) || [];
-  }
+  if (kode === 'ALL'){ kkJ = Object.values(S.kasKecil.perEntity || {}).flatMap(x => x.mutasi || []); }
+  else { kkJ = (S.kasKecil.perEntity?.[kode]?.mutasi) || []; }
   const pend  = sum(penj, totSell);
   const hpp   = sum(penj, hppSell);
   const beban = sum(kkJ.filter(m => m.keluar), m => m.keluar);
@@ -289,12 +290,13 @@ function jurnal(){
   Object.entries(S.kasKecil.perEntity || {}).forEach(([ent, obj]) => {
     (obj.mutasi || []).forEach(m => {
       if (m.masuk) J.push({ tgl:m.tgl, ref:'KK-'+ent, ent, ket:'Isi kas kecil', d:'Kas Kecil', k:'Kas', j:m.masuk });
-      if (m.keluar) J.push({ tgl:m.tgl, ref:'KK-'+ent, ent, ket:'Kas kecil keluar', d:'Beban', k:'Kas Kecil', j:m.keluar });
+      if (m.keluar) J.push({ tgl:m.tgl, ref:'KK-'+ent, ent, ket:'Kas kecil keluar', d: 'Beban', k:'Kas Kecil', j:m.keluar });
     });
   });
   return J.sort((a,b) => (b.tgl||'').localeCompare(a.tgl||''));
 }
 
+/* FUNGSI PENGUBAH STOK */
 function stokMasuk(id, qty, harga){
   const b = brg(id); if (!b) return;
   const nl = b.stok * (b.hargaBeli || 0);
@@ -306,6 +308,24 @@ function stokKeluar(id, qty){
   const hpp = b.hargaBeli || 0;
   b.stok -= qty;
   return hpp;
+}
+
+/* FUNGSI REKALKULASI STOK (DERIVED STOCK) */
+function recalcStok(){
+  if(!S.barang) return;
+  S.barang.forEach(b => {
+    let mutasi = 0;
+    (S.pembelian || []).forEach(p => (p.items || []).forEach(i => { if (i.barangId === b.id) mutasi += i.qty; }));
+    (S.penjualan || []).forEach(p => (p.items || []).forEach(i => { if (i.barangId === b.id) mutasi -= i.qty; }));
+    (S.produksi || []).forEach(w => {
+      (w.bahan || []).forEach(i => { if (i.barangId === b.id) mutasi -= i.qty; });
+      (w.output || []).forEach(i => { if (i.barangId === b.id) mutasi += i.qty; });
+    });
+    (S.panen || []).forEach(h => (h.items || []).forEach(i => { if (i.barangId === b.id) mutasi += i.qty; }));
+    
+    // Stok akhir selalu dihitung dari stokAwal + Mutasi
+    b.stok = (b.stokAwal || 0) + mutasi;
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -320,7 +340,6 @@ function lastSyncText(){
   return '✓ Tersinkron — ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
 
-/* Kunci unik operasi: type|id (untuk menggabungkan upsert ganda) */
 const opKey = o => (o.type || '') + '|' + (o.id || (o.record && o.record.id) || '');
 
 function moveToFailed(op, err){
@@ -330,34 +349,29 @@ function moveToFailed(op, err){
   localStorage[K_FAILED] = JSON.stringify(f);
 }
 
-/* Kirim ulang operasi yang gagal (bisa dipanggil dari tombol / console) */
 function retryFailed(){
   const f = getFailed();
   if (!f.length){ toast('Tidak ada data gagal'); return; }
   const q = getQueue();
   f.forEach(x => { x.op._try = 0; q.push(x.op); });
   localStorage[K_FAILED] = '[]';
-  setQueue(q);
-  flush();
+  setQueue(q); flush();
 }
 
 async function flush(){
   const url = getUrl();
   if (!url || url === 'DEMO' || busy || !navigator.onLine) return;
-  busy = true;
-  updateStatus();
+  busy = true; updateStatus();
 
   try {
     while (true){
       const q = getQueue();
       if (!q.length) break;
 
-      // Pastikan tiap operasi punya ID unik (antrian lama belum punya)
       let dirty = false;
       q.forEach(o => { if (!o._q){ o._q = uid(); dirty = true; } });
       if (dirty) setQueue(q);
 
-      // Maksimal 50 operasi per kirim
       const chunk = q.slice(0, 50);
       const payload = { action: 'batch', ops: chunk, key: API_KEY };
 
@@ -370,12 +384,8 @@ async function flush(){
           console.error('Sync Server Error:', txt);
           break;
         }
-      } catch(e){
-        console.error('Network Error:', e);
-        break;
-      }
+      } catch(e){ console.error('Network Error:', e); break; }
 
-      // Hanya operasi yang dibalas ok:true yang dihapus dari antrian
       const acked = new Set();
       const failedMap = new Map();
       chunk.forEach((op, i) => {
@@ -384,7 +394,6 @@ async function flush(){
         else failedMap.set(op._q, (r && r.error) || 'tanpa balasan');
       });
 
-      // Baca antrian TERBARU (mungkin sudah ada item baru selama request berjalan)
       const rest = [];
       getQueue().forEach(op => {
         if (acked.has(op._q)) return;
@@ -396,31 +405,25 @@ async function flush(){
       });
       setQueue(rest);
 
-      if (failedMap.size) break; // coba lagi di pemicu berikutnya
+      if (failedMap.size) break;
     }
     if (!getQueue().length && hasUrl() && getUrl() !== 'DEMO') trackSync();
-  } finally {
-    busy = false;
-    updateStatus();
-  }
+  } finally { busy = false; updateStatus(); }
 }
 
 function queue(payload){
   if (!hasUrl() || getUrl() === 'DEMO') return;
-  // updatedAt dipakai Stale Guard di Code.gs v2.0
   if (payload.action === 'upsert' && payload.record) {
     payload.record.updatedAt = new Date().toISOString();
   }
   let q = getQueue();
-  // Gabungkan: upsert lama untuk record yang sama dibuang, hanya versi terbaru yang dikirim
   if (payload.action === 'upsert' || payload.action === 'delete'){
     const key = opKey(payload);
     q = q.filter(o => !(o.action === 'upsert' && opKey(o) === key));
   }
   payload._q = uid();
   q.push(payload);
-  setQueue(q);
-  flush();
+  setQueue(q); flush();
 }
 
 async function sync(){
@@ -437,40 +440,23 @@ function updateStatus(){
   const btnSync = $('#btn-sync');
   if (!syEl) return;
 
-  if (!hasUrl()){
-    syEl.textContent = '○ Belum tersambung';
-    if (btnSync) btnSync.innerHTML = '↑ Sync';
-    return;
-  }
+  if (!hasUrl()){ syEl.textContent = '○ Belum tersambung'; if (btnSync) btnSync.innerHTML = '↑ Sync'; return; }
 
   const isDemo = getUrl() === 'DEMO';
   const n = getQueue().length;
   const nf = failedCount();
   const online = navigator.onLine;
 
-  if (isDemo){
-    syEl.textContent = '🎬 Mode demo';
-    if (btnSync) btnSync.innerHTML = '↑ Sync';
-  } else if (!online){
-    syEl.textContent = n > 0 ? `🔴 Offline · ${n} data tersimpan lokal` : '🔴 Offline · lokal';
-    if (btnSync) btnSync.innerHTML = '↑ Sync';
-  } else if (busy) {
-    syEl.textContent = `⏳ Menyingkronkan ${n > 0 ? n + ' data' : ''}...`;
-    if (btnSync) btnSync.innerHTML = `<span style="display:inline-block; animation:spin 1s linear infinite">↻</span> Sync`;
-  } else if (n > 0){
-    syEl.textContent = `⏳ ${n} perubahan menunggu sync`;
-    if (btnSync) btnSync.innerHTML = '↑ Sync';
-  } else if (nf > 0){
-    syEl.textContent = `⚠ ${nf} data gagal sync`;
-    if (btnSync) btnSync.innerHTML = '↑ Sync';
-  } else {
-    syEl.textContent = lastSyncText();
-    if (btnSync) btnSync.innerHTML = '↑ Sync';
-  }
+  if (isDemo){ syEl.textContent = '🎬 Mode demo'; if (btnSync) btnSync.innerHTML = '↑ Sync'; }
+  else if (!online){ syEl.textContent = n > 0 ? `🔴 Offline · ${n} data tersimpan lokal` : '🔴 Offline · lokal'; if (btnSync) btnSync.innerHTML = '↑ Sync'; }
+  else if (busy) { syEl.textContent = `⏳ Menyingkronkan ${n > 0 ? n + ' data' : ''}...`; if (btnSync) btnSync.innerHTML = `<span style="display:inline-block; animation:spin 1s linear infinite">↻</span> Sync`; }
+  else if (n > 0){ syEl.textContent = `⏳ ${n} perubahan menunggu sync`; if (btnSync) btnSync.innerHTML = '↑ Sync'; }
+  else if (nf > 0){ syEl.textContent = `⚠ ${nf} data gagal sync`; if (btnSync) btnSync.innerHTML = '↑ Sync'; }
+  else { syEl.textContent = lastSyncText(); if (btnSync) btnSync.innerHTML = '↑ Sync'; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SISTEM UPDATE (Cepat & Responsif)
+   SISTEM UPDATE
    ═══════════════════════════════════════════════════════════════ */
 let latestVer = null;
 let currentVer = localStorage.app_v || '0';
@@ -478,44 +464,26 @@ let currentVer = localStorage.app_v || '0';
 async function checkAppUpdate(isManual = false) {
   const btn = document.getElementById('btn-update');
   if (!btn) return;
-
-  if (isManual) {
-    btn.innerHTML = '⏳ Memeriksa...';
-    btn.style.cursor = 'wait';
-  }
-
+  if (isManual) { btn.innerHTML = '⏳ Memeriksa...'; btn.style.cursor = 'wait'; }
   try {
     const r = await fetch('./version.json?t=' + Date.now(), { cache: 'no-store' });
     const j = await r.json();
     latestVer = String(j.v);
-
     const todayStr = new Date().toISOString().slice(0,10);
     const elVer = document.getElementById('app-version');
     if (elVer) elVer.textContent = `v${latestVer} · ${todayStr}`;
-
-    if (currentVer === '0') {
-      localStorage.app_v = latestVer;
-      currentVer = latestVer;
-    }
-
+    if (currentVer === '0') { localStorage.app_v = latestVer; currentVer = latestVer; }
     if (currentVer !== latestVer) {
       btn.innerHTML = `⬇ Update v${latestVer}`;
-      btn.style.background = '#2563eb';
-      btn.style.color = '#fff';
-      btn.style.border = '1px solid #1e40af';
-      btn.style.cursor = 'pointer';
+      btn.style.background = '#2563eb'; btn.style.color = '#fff'; btn.style.border = '1px solid #1e40af'; btn.style.cursor = 'pointer';
       if (isManual) toast('Versi baru tersedia! Klik tombol biru untuk update.');
     } else {
       btn.innerHTML = '⬇ Update';
-      btn.style.background = '#e5e7eb';
-      btn.style.color = '#374151';
-      btn.style.border = 'none';
-      btn.style.cursor = 'pointer';
+      btn.style.background = '#e5e7eb'; btn.style.color = '#374151'; btn.style.border = 'none'; btn.style.cursor = 'pointer';
       if (isManual) toast(`✓ Sudah versi terbaru (v${latestVer})`);
     }
   } catch(e) {
-    btn.innerHTML = '⬇ Update';
-    btn.style.cursor = 'pointer';
+    btn.innerHTML = '⬇ Update'; btn.style.cursor = 'pointer';
     if (isManual) toast('Gagal memeriksa update', 'error');
   }
 }
@@ -523,81 +491,50 @@ async function checkAppUpdate(isManual = false) {
 function handleUpdateClick() {
   if (latestVer && currentVer !== latestVer) {
     if (confirm('Versi terbaru v' + latestVer + ' tersedia.\nMuat ulang aplikasi sekarang?')) {
-      localStorage.app_v = latestVer;
-      hardReset();
+      localStorage.app_v = latestVer; hardReset();
     }
-  } else {
-    checkAppUpdate(true);
-  }
+  } else { checkAppUpdate(true); }
 }
 
 async function hardReset() {
   toast('Membersihkan cache & memuat ulang...', null, 5000);
   try {
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const reg of regs) await reg.unregister();
-    }
-    if ('caches' in window) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k)));
-    }
+    if ('serviceWorker' in navigator) { const regs = await navigator.serviceWorker.getRegistrations(); for (const reg of regs) await reg.unregister(); }
+    if ('caches' in window) { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); }
   } catch(e) {}
-
-  setTimeout(() => {
-    window.location.href = window.location.pathname + '?fresh=' + Date.now();
-  }, 800);
+  setTimeout(() => { window.location.href = window.location.pathname + '?fresh=' + Date.now(); }, 800);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   BOOTSTRAP (Tarik Data dari Google Sheet - INCREMENTAL)
+   BOOTSTRAP (Tarik Data)
    ═══════════════════════════════════════════════════════════════ */
 async function bootstrapSync(){
   if (!hasUrl() || getUrl() === 'DEMO') return;
   if (!navigator.onLine){ toast('Offline — sync otomatis nanti'); return; }
 
-  // 1) Kirim dulu semua perubahan lokal. Pull TIDAK BOLEH jalan kalau masih ada antrian,
-  //    supaya data offline yang belum terkirim tidak tertimpa data dari Sheet.
   await flush();
-  if (getQueue().length){
-    toast('Masih ada data belum terkirim — tarik data ditunda', 'error');
-    return;
-  }
+  if (getQueue().length){ toast('Masih ada data belum terkirim — tarik data ditunda', 'error'); return; }
 
   const lastTime = localStorage[K_SERVER_TIME];
   const isFirstPull = !lastTime;
-
   toast(isFirstPull ? 'Memuat semua data dari Sheet…' : 'Memuat pembaruan dari Sheet…');
 
   try {
     let url = getUrl() + '?action=pull&key=' + encodeURIComponent(API_KEY);
     if (lastTime){
-      // Mundur 5 detik sebagai margin (merge bersifat idempotent, aman bila ada yang terambil ulang)
       const since = new Date(Date.parse(lastTime) - 5000).toISOString();
       url += '&since=' + encodeURIComponent(since);
     }
-
     const res = await fetch(url);
     const txt = await res.text();
     let json; try { json = JSON.parse(txt); } catch(e){ throw new Error('invalid'); }
-
-    if (!(json && json.ok && json.data)){
-      toast('Gagal memuat dari Sheet' + (json && json.error ? ': ' + json.error : ''), 'error');
-      return;
-    }
+    if (!(json && json.ok && json.data)){ toast('Gagal memuat dari Sheet' + (json && json.error ? ': ' + json.error : ''), 'error'); return; }
 
     const d = json.data;
 
     if (isFirstPull) {
-      // --- FULL REPLACE (pertama kali tarik data) ---
       const ada = (d.barang?.length) || (d.supplier?.length) || (d.pelanggan?.length) || (d.pembelian?.length) || (d.penjualan?.length);
-
-      if (!ada){
-        // Sheet masih kosong → kirim data lokal ke Sheet
-        if (json.serverTime) localStorage[K_SERVER_TIME] = json.serverTime;
-        pushAllToSheet();
-        return;
-      }
+      if (!ada){ if (json.serverTime) localStorage[K_SERVER_TIME] = json.serverTime; pushAllToSheet(); return; }
 
       if (d.barang?.length)    S.barang     = d.barang;
       if (d.supplier)          S.supplier   = d.supplier;
@@ -616,27 +553,15 @@ async function bootstrapSync(){
       if (d.kandangLog)        S.kandangLog = d.kandangLog;
 
       if (d.kk?.length){
-        const per = {};
-        ['HQ','SB','DR','AY','PK'].forEach(k => per[k] = { saldo: 0, mutasi: [] });
-        d.kk.forEach(m => {
-          const e = m.entity || 'HQ';
-          if (!per[e]) per[e] = { saldo:0, mutasi:[] };
-          per[e].mutasi.push(m);
-          per[e].saldo += (m.masuk||0) - (m.keluar||0);
-        });
+        const per = {}; ['HQ','SB','DR','AY','PK'].forEach(k => per[k] = { saldo: 0, mutasi: [] });
+        d.kk.forEach(m => { const e = m.entity || 'HQ'; if (!per[e]) per[e] = { saldo:0, mutasi:[] }; per[e].mutasi.push(m); per[e].saldo += (m.masuk||0) - (m.keluar||0); });
         S.kasKecil.perEntity = per;
       }
-
     } else {
-      // --- INCREMENTAL MERGE (hanya gabungkan data yang berubah) ---
-      // Urutan lama dipertahankan; record baru ditaruh di depan (terbaru di atas).
-      // Record lokal yang updatedAt-nya lebih baru tidak ditimpa.
       const mergeData = (key, newItems) => {
         if (!newItems || !newItems.length) return;
         if (!Array.isArray(S[key])) S[key] = [];
-        const arr = S[key];
-        const pos = new Map(arr.map((x, i) => [x.id, i]));
-        const fresh = [];
+        const arr = S[key]; const pos = new Map(arr.map((x, i) => [x.id, i])); const fresh = [];
         newItems.forEach(item => {
           const i = pos.get(item.id);
           if (i === undefined){ fresh.push(item); return; }
@@ -646,35 +571,20 @@ async function bootstrapSync(){
         });
         S[key] = fresh.concat(arr);
       };
+      mergeData('barang', d.barang); mergeData('supplier', d.supplier); mergeData('pelanggan', d.pelanggan);
+      mergeData('pembelian', d.pembelian); mergeData('penjualan', d.penjualan); mergeData('pembayaran', d.pembayaran);
+      mergeData('penerimaan', d.penerimaan); mergeData('transfer', d.transfer); mergeData('permintaan', d.permintaan);
+      mergeData('pesanan', d.pesanan); mergeData('users', d.users); mergeData('produksi', d.produksi);
+      mergeData('panen', d.panen); mergeData('kandang', d.kandang); mergeData('kandangLog', d.kandangLog);
 
-      mergeData('barang', d.barang);
-      mergeData('supplier', d.supplier);
-      mergeData('pelanggan', d.pelanggan);
-      mergeData('pembelian', d.pembelian);
-      mergeData('penjualan', d.penjualan);
-      mergeData('pembayaran', d.pembayaran);
-      mergeData('penerimaan', d.penerimaan);
-      mergeData('transfer', d.transfer);
-      mergeData('permintaan', d.permintaan);
-      mergeData('pesanan', d.pesanan);
-      mergeData('users', d.users);
-      mergeData('produksi', d.produksi);
-      mergeData('panen', d.panen);
-      mergeData('kandang', d.kandang);
-      mergeData('kandangLog', d.kandangLog);
-
-      // Merge Kas Kecil
       if (d.kk && d.kk.length) {
         d.kk.forEach(m => {
           const ent = m.entity || 'HQ';
           if (!S.kasKecil.perEntity[ent]) S.kasKecil.perEntity[ent] = {saldo:0, mutasi:[]};
           const per = S.kasKecil.perEntity[ent];
           const idx = per.mutasi.findIndex(x => x.id === m.id);
-          if (idx >= 0){
-            const old = per.mutasi[idx];
-            if (old.updatedAt && m.updatedAt && old.updatedAt > m.updatedAt) return;
-            per.mutasi[idx] = m;
-          } else per.mutasi.unshift(m);
+          if (idx >= 0){ const old = per.mutasi[idx]; if (old.updatedAt && m.updatedAt && old.updatedAt > m.updatedAt) return; per.mutasi[idx] = m; }
+          else per.mutasi.unshift(m);
         });
         Object.keys(S.kasKecil.perEntity).forEach(k => {
           const obj = S.kasKecil.perEntity[k];
@@ -682,12 +592,9 @@ async function bootstrapSync(){
         });
       }
 
-      // Tombstone (penghapusan dari device lain)
       if (json.deleted && json.deleted.length) {
         json.deleted.forEach(del => {
-          if (S[del.type] && Array.isArray(S[del.type])) {
-            S[del.type] = S[del.type].filter(x => x.id !== del.id);
-          }
+          if (S[del.type] && Array.isArray(S[del.type])) S[del.type] = S[del.type].filter(x => x.id !== del.id);
           if (del.type === 'kk') {
             Object.keys(S.kasKecil.perEntity).forEach(k => {
               const obj = S.kasKecil.perEntity[k];
@@ -699,18 +606,15 @@ async function bootstrapSync(){
       }
     }
 
-    // Simpan serverTime (hanya di sini) agar pull berikutnya incremental
     if (json.serverTime) localStorage[K_SERVER_TIME] = json.serverTime;
-
     migrate();
     recalcKas();
+    recalcStok(); // <-- PENTING: Hitung ulang stok dari data yang baru ditarik
     persist(); refreshAll();
     trackSync();
     toast('✓ Data disinkronkan dengan Sheet');
   } catch(e){
-    // Jangan push otomatis di sini: data lokal akan dianggap "terbaru" dan menimpa Sheet.
-    console.warn('pull gagal:', e);
-    toast('Gagal memuat dari Sheet', 'error');
+    console.warn('pull gagal:', e); toast('Gagal memuat dari Sheet', 'error');
   }
 }
 
@@ -718,12 +622,8 @@ function pushAllToSheet(){
   if (!hasUrl() || getUrl() === 'DEMO') return;
   const now = new Date().toISOString();
   const ops = [];
-  const push = (t, r) => {
-    if (r?.id) {
-      r.updatedAt = now;
-      ops.push({ type:t, action:'upsert', record:r, _q: uid() });
-    }
-  };
+  const push = (t, r) => { if (r?.id) { r.updatedAt = now; ops.push({ type:t, action:'upsert', record:r, _q: uid() }); } };
+  
   S.barang.forEach(b => push('barang', b));
   (S.supplier||[]).forEach(s => push('supplier', s));
   (S.pelanggan||[]).forEach(p => push('pelanggan', p));
@@ -739,36 +639,26 @@ function pushAllToSheet(){
   (S.kandang||[]).forEach(p => push('kandang', p));
   (S.kandangLog||[]).forEach(p => push('kandangLog', p));
   (S.users||[]).forEach(u => push('users', u));
-
   Object.values(S.kasKecil.perEntity||{}).forEach(o => (o.mutasi||[]).forEach(m => push('kk', m)));
 
-  // Buang upsert lama di antrian untuk record yang sama (hindari kirim ganda)
   const keys = new Set(ops.map(opKey));
   const q = getQueue().filter(o => !(o.action === 'upsert' && keys.has(opKey(o))));
-  persist(); // simpan updatedAt yang baru di-stamp
-  setQueue(q.concat(ops));
+  persist(); setQueue(q.concat(ops));
   localStorage[K_BOOT] = '1';
-  if (ops.length) {
-    toast('⬆ Mengirim ' + ops.length + ' data…');
-    flush();
-  }
+  if (ops.length) { toast('⬆ Mengirim ' + ops.length + ' data…'); flush(); }
 }
 
 function disconnect(){
   if (!confirm('Putuskan koneksi ke Google Sheet?\nData lokal tetap tersimpan.')) return;
-  delete localStorage[K_URL];
-  delete localStorage[K_SERVER_TIME];
-  toast('Koneksi diputuskan');
-  setTimeout(() => location.reload(), 500);
+  delete localStorage[K_URL]; delete localStorage[K_SERVER_TIME];
+  toast('Koneksi diputuskan'); setTimeout(() => location.reload(), 500);
 }
 
 async function pullFromSheet(){
   if (!hasUrl()){ toast('Belum tersambung','error'); return; }
   if (getUrl() === 'DEMO'){ toast('Mode demo'); return; }
   if (!navigator.onLine){ toast('Sedang offline','error'); return; }
-  toast('Memuat dari Sheet…');
-  await bootstrapSync();
-  updateStatus();
+  toast('Memuat dari Sheet…'); await bootstrapSync(); updateStatus();
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -776,7 +666,6 @@ async function pullFromSheet(){
    ═══════════════════════════════════════════════════════════════ */
 let view = 'home';
 
-/* Menu "Lainnya" — untuk HP & iPad portrait (nav bawah hanya muat 5 tombol) */
 function moreItems(){
   const u = typeof currentUser === 'function' ? currentUser() : null;
   const isOwner = !!u && u.role === 'owner';
@@ -797,15 +686,13 @@ function moreItems(){
 function openMore(){
   const u = currentUser(); if (!u) return;
   const isOwner = u.role === 'owner';
-  const row = (ic, label, js) =>
-    `<button class="more-item" onclick="${js}"><span class="more-ic">${ic}</span><span class="more-lbl">${esc(label)}</span><span class="more-arrow">›</span></button>`;
+  const row = (ic, label, js) => `<button class="more-item" onclick="${js}"><span class="more-ic">${ic}</span><span class="more-lbl">${esc(label)}</span><span class="more-arrow">›</span></button>`;
 
   let html = '';
   if (isOwner && activeDiv !== 'HQ') html += row('🏢', 'Kembali ke Pusat', 'closeModal();exitDiv()');
   html += moreItems().map(i => row(i.icon, i.label, `closeModal();openModule('${i.id}')`)).join('');
   if (isOwner && activeDiv === 'HQ'){
-    html += '<div class="more-sec">Divisi Usaha</div>' +
-      Object.keys(LINI).map(k => row(LINI[k].ico, LINI[k].nama, `closeModal();enterDiv('${k}')`)).join('');
+    html += '<div class="more-sec">Divisi Usaha</div>' + Object.keys(LINI).map(k => row(LINI[k].ico, LINI[k].nama, `closeModal();enterDiv('${k}')`)).join('');
   }
   html += '<div class="more-sec">Akun</div>' + row('🚪', 'Keluar', 'closeModal();logout()');
 
@@ -815,45 +702,23 @@ function openMore(){
       <button class="mx" onclick="closeModal()">×</button>
     </div>
     <div class="more-list">${html}</div>`;
-  modalOk = null;
-  $('#modal').classList.add('show');
+  modalOk = null; $('#modal').classList.add('show');
 }
 
 function renderNav(){
   const nav = $('#nav'); if (!nav) return;
-
   let navItems = [];
-  if (activeDiv === 'HQ') {
-    navItems = [
-      { id:'home', icon:'🏠', label:'Home' },
-      { id:'dashboard', icon:'📊', label:'Pusat' },
-      { id:'barang', icon:'📦', label:'Master' }
-    ];
-  } else {
-    navItems = [
-      { id:'dashboard', icon:'📊', label:'Dasbor' },
-      { id:'penjualan', icon:'🧾', label:'Jual' },
-      { id:'pembelian', icon:'🛒', label:'Beli' },
-      { id:'penerimaan', icon:'💰', label:'Kas' }
-    ];
-  }
+  if (activeDiv === 'HQ') { navItems = [ { id:'home', icon:'🏠', label:'Home' }, { id:'dashboard', icon:'📊', label:'Pusat' }, { id:'barang', icon:'📦', label:'Master' } ]; }
+  else { navItems = [ { id:'dashboard', icon:'📊', label:'Dasbor' }, { id:'penjualan', icon:'🧾', label:'Jual' }, { id:'pembelian', icon:'🛒', label:'Beli' }, { id:'penerimaan', icon:'💰', label:'Kas' } ]; }
 
   const moreOn = moreItems().some(i => i.id === view);
-  nav.innerHTML = navItems.map(n =>
-    `<button data-t="${n.id}" class="${n.id===view?'on':''}" onclick="openModule('${n.id}')">
-       <span class="ic">${n.icon}</span>${n.label}
-     </button>`
-  ).join('') +
-  `<button data-t="more" class="${moreOn?'on':''}" onclick="openMore()">
-     <span class="ic">⋯</span>Lainnya
-   </button>`;
+  nav.innerHTML = navItems.map(n => `<button data-t="${n.id}" class="${n.id===view?'on':''}" onclick="openModule('${n.id}')"><span class="ic">${n.icon}</span>${n.label}</button>`).join('') +
+  `<button data-t="more" class="${moreOn?'on':''}" onclick="openMore()"><span class="ic">⋯</span>Lainnya</button>`;
 }
 
 function renderSidebar(){
-  const el = document.getElementById('sidebar');
-  if (!el) return;
-  const u = typeof currentUser === 'function' ? currentUser() : null;
-  if (!u) return;
+  const el = document.getElementById('sidebar'); if (!el) return;
+  const u = typeof currentUser === 'function' ? currentUser() : null; if (!u) return;
   const e = entInfo(u.entity);
 
   let menuHtml = '';
@@ -864,42 +729,26 @@ function renderSidebar(){
       <div class="sb-item ${view==='dashboard'?'on':''}" onclick="openModule('dashboard')"><span class="sb-ic">📊</span><span class="sb-lbl">Dashboard Konsolidasi</span></div>
       <div class="sb-item ${view==='eksekutif'?'on':''}" onclick="openModule('eksekutif')"><span class="sb-ic">🧭</span><span class="sb-lbl">Ringkasan Eksekutif</span></div>
       <div class="sb-item ${view==='jurnal'?'on':''}" onclick="openModule('jurnal')"><span class="sb-ic">📚</span><span class="sb-lbl">Jurnal Global</span></div>
-
       <div class="sb-section">Master Data</div>
       <div class="sb-item ${view==='barang'?'on':''}" onclick="openModule('barang')"><span class="sb-ic">📦</span><span class="sb-lbl">Barang</span></div>
       <div class="sb-item ${view==='supplier'?'on':''}" onclick="openModule('supplier')"><span class="sb-ic">🏭</span><span class="sb-lbl">Supplier</span></div>
       <div class="sb-item ${view==='pelanggan'?'on':''}" onclick="openModule('pelanggan')"><span class="sb-ic">👥</span><span class="sb-lbl">Pelanggan</span></div>
-
       <div class="sb-section">Divisi Usaha</div>
-      ${Object.keys(LINI).map(k => {
-        const d = LINI[k];
-        return `<div class="sb-item" onclick="enterDiv('${k}')">
-          <span class="sb-ic">${d.ico}</span>
-          <span class="sb-lbl">${d.nama}</span>
-          <span class="sb-arrow">›</span>
-        </div>`;
-      }).join('')}
-
-      ${u.role === 'owner' ? `
-      <div class="sb-section">Sistem & Pengaturan</div>
-      <div class="sb-item ${view==='akun'?'on':''}" onclick="openModule('akun')"><span class="sb-ic">👤</span><span class="sb-lbl">Kelola Akun</span></div>
-      ` : ''}
+      ${Object.keys(LINI).map(k => { const d = LINI[k]; return `<div class="sb-item" onclick="enterDiv('${k}')"><span class="sb-ic">${d.ico}</span><span class="sb-lbl">${d.nama}</span><span class="sb-arrow">›</span></div>`; }).join('')}
+      ${u.role === 'owner' ? `<div class="sb-section">Sistem & Pengaturan</div><div class="sb-item ${view==='akun'?'on':''}" onclick="openModule('akun')"><span class="sb-ic">👤</span><span class="sb-lbl">Kelola Akun</span></div>` : ''}
     `;
   } else {
     const d = entInfo(activeDiv);
     menuHtml = `
       <div class="sb-back" onclick="exitDiv()">← Kembali ke Pusat</div>
       <div class="sb-section" style="color:${d.warna}">${d.ico} Divisi ${d.nama}</div>
-
       <div class="sb-item ${view==='dashboard'?'on':''}" onclick="openModule('dashboard')"><span class="sb-ic">📊</span><span class="sb-lbl">Dashboard</span></div>
-
       <div class="sb-section">Transaksi</div>
       <div class="sb-item ${view==='penjualan'?'on':''}" onclick="openModule('penjualan')"><span class="sb-ic">🧾</span><span class="sb-lbl">Faktur Jual</span></div>
       <div class="sb-item ${view==='pembelian'?'on':''}" onclick="openModule('pembelian')"><span class="sb-ic">🛒</span><span class="sb-lbl">Faktur Beli</span></div>
       <div class="sb-item ${view==='penerimaan'?'on':''}" onclick="openModule('penerimaan')"><span class="sb-ic">💰</span><span class="sb-lbl">Penerimaan</span></div>
       <div class="sb-item ${view==='pembayaran'?'on':''}" onclick="openModule('pembayaran')"><span class="sb-ic">💸</span><span class="sb-lbl">Pembayaran</span></div>
       <div class="sb-item ${view==='kaskecil'?'on':''}" onclick="openModule('kaskecil')"><span class="sb-ic">👛</span><span class="sb-lbl">Kas Kecil</span></div>
-
       <div class="sb-section">Laporan</div>
       <div class="sb-item ${view==='jurnal'?'on':''}" onclick="openModule('jurnal')"><span class="sb-ic">📚</span><span class="sb-lbl">Jurnal Divisi</span></div>
     `;
@@ -907,13 +756,8 @@ function renderSidebar(){
 
   el.innerHTML = `
     <div class="sb-head">
-      <div class="sb-logo" style="background:${activeDiv==='HQ'?'#2d5016':entInfo(activeDiv).warna}">
-        ${activeDiv==='HQ'?'🌱':entInfo(activeDiv).ico}
-      </div>
-      <div class="sb-title">
-        <b>${activeDiv==='HQ'?'IMB Pusat':entInfo(activeDiv).nama}</b>
-        <span>PT. Insan Muda Berdikari</span>
-      </div>
+      <div class="sb-logo" style="background:${activeDiv==='HQ'?'#2d5016':entInfo(activeDiv).warna}">${activeDiv==='HQ'?'🌱':entInfo(activeDiv).ico}</div>
+      <div class="sb-title"><b>${activeDiv==='HQ'?'IMB Pusat':entInfo(activeDiv).nama}</b><span>PT. Insan Muda Berdikari</span></div>
     </div>
     <div class="sb-nav">${menuHtml}</div>
     <div class="sb-foot">
@@ -931,10 +775,7 @@ function openModule(id){
   if (!canAccess(id)){ toast('Akses ditolak','error'); return; }
   view = id;
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + id));
-  renderNav();
-  renderSidebar();
-  window.scrollTo({top:0});
-  refreshView(id);
+  renderNav(); renderSidebar(); window.scrollTo({top:0}); refreshView(id);
 }
 
 function refreshView(id){
@@ -960,11 +801,8 @@ function refreshView(id){
 }
 
 function refreshAll(){
-  Object.keys({
-    home:1, dashboard:1, barang:1, supplier:1, pelanggan:1, pembelian:1, penjualan:1, pembayaran:1, penerimaan:1, kaskecil:1, jurnal:1, akun:1, eksekutif:1, produksi:1, panen:1, kandang:1
-  }).forEach(refreshView);
-  updateStatus();
-  renderSidebar();
+  Object.keys({ home:1, dashboard:1, barang:1, supplier:1, pelanggan:1, pembelian:1, penjualan:1, pembayaran:1, penerimaan:1, kaskecil:1, jurnal:1, akun:1, eksekutif:1, produksi:1, panen:1, kandang:1 }).forEach(refreshView);
+  updateStatus(); renderSidebar();
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -973,50 +811,27 @@ function refreshAll(){
 function renderHome(){
   const u = currentUser(); if (!u) return;
   const e = entInfo(u.entity);
-
-  const ico = document.getElementById('uc-ico');
-  const nm  = document.getElementById('uc-nama');
-  const inf = document.getElementById('uc-info');
-  if (ico) ico.textContent = e.ico;
-  if (nm)  nm.textContent  = u.nama;
-  if (inf) inf.textContent = `${u.role.toUpperCase()} · ${e.nama}`;
+  const ico = document.getElementById('uc-ico'); const nm  = document.getElementById('uc-nama'); const inf = document.getElementById('uc-info');
+  if (ico) ico.textContent = e.ico; if (nm)  nm.textContent  = u.nama; if (inf) inf.textContent = `${u.role.toUpperCase()} · ${e.nama}`;
 
   const divGrid = document.getElementById('home-div-grid');
   if (divGrid) {
     divGrid.innerHTML = Object.keys(LINI).map(k => {
       const d = LINI[k];
-      return `<div class="div-card" onclick="enterDiv('${k}')" style="border-top: 4px solid ${d.warna}">
-        <div class="div-card-ico">${d.ico}</div>
-        <div class="div-card-name">${d.nama}</div>
-        <div class="div-card-sub">Masuk ke Divisi →</div>
-      </div>`;
+      return `<div class="div-card" onclick="enterDiv('${k}')" style="border-top: 4px solid ${d.warna}"><div class="div-card-ico">${d.ico}</div><div class="div-card-name">${d.nama}</div><div class="div-card-sub">Masuk ke Divisi →</div></div>`;
     }).join('');
   }
-
-  const sysMenu = document.getElementById('sys-menu');
-  const sysLabel = document.getElementById('sys-label');
-  if (u.role === 'owner') {
-    if (sysMenu) sysMenu.style.display = '';
-    if (sysLabel) sysLabel.style.display = '';
-  } else {
-    if (sysMenu) sysMenu.style.display = 'none';
-    if (sysLabel) sysLabel.style.display = 'none';
-  }
-
+  const sysMenu = document.getElementById('sys-menu'); const sysLabel = document.getElementById('sys-label');
+  if (u.role === 'owner') { if (sysMenu) sysMenu.style.display = ''; if (sysLabel) sysLabel.style.display = ''; }
+  else { if (sysMenu) sysMenu.style.display = 'none'; if (sysLabel) sysLabel.style.display = 'none'; }
   if (typeof applyMenuAccess === 'function') applyMenuAccess();
 }
 
 function hideWelcome(){
-  const w = document.getElementById('welcome');
-  const m = document.getElementById('m');
-  const nav = document.getElementById('nav');
-  const sb = document.getElementById('sidebar');
-  const hb = document.getElementById('hdr-btns');
+  const w = document.getElementById('welcome'); const m = document.getElementById('m'); const nav = document.getElementById('nav');
+  const sb = document.getElementById('sidebar'); const hb = document.getElementById('hdr-btns');
   if (w){ w.style.display='none'; w.innerHTML=''; }
-  if (m) m.style.display = 'block';
-  if (nav) nav.style.display = 'flex';
-  if (sb) sb.style.display = '';
-  if (hb) hb.style.display = 'flex';
+  if (m) m.style.display = 'block'; if (nav) nav.style.display = 'flex'; if (sb) sb.style.display = ''; if (hb) hb.style.display = 'flex';
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1026,61 +841,40 @@ let modalOk = null;
 function openModal(title, sub, body, onOk, okLabel){
   const m = $('#modal');
   $('#mc').innerHTML = `
-    <div class="mhead">
-      <div><h3>${esc(title)}</h3>${sub?`<div class="msub">${esc(sub)}</div>`:''}</div>
-      <button class="mx" onclick="closeModal()">×</button>
-    </div>
+    <div class="mhead"><div><h3>${esc(title)}</h3>${sub?`<div class="msub">${esc(sub)}</div>`:''}</div><button class="mx" onclick="closeModal()">×</button></div>
     ${body}
-    <div class="mfoot">
-      <button class="btn btn-s" onclick="closeModal()">Batal</button>
-      <button class="btn btn-p" id="mOk">${esc(okLabel || 'Simpan')}</button>
-    </div>`;
-  modalOk = onOk;
-  $('#mOk').onclick = () => { if (modalOk) modalOk(); };
-  m.classList.add('show');
+    <div class="mfoot"><button class="btn btn-s" onclick="closeModal()">Batal</button><button class="btn btn-p" id="mOk">${esc(okLabel || 'Simpan')}</button></div>`;
+  modalOk = onOk; $('#mOk').onclick = () => { if (modalOk) modalOk(); }; m.classList.add('show');
 }
 function closeModal(){ $('#modal').classList.remove('show'); modalOk = null; }
-document.addEventListener('DOMContentLoaded', () => {
-  const md = $('#modal');
-  if (md) md.onclick = e => { if (e.target.id === 'modal') closeModal(); };
-});
+document.addEventListener('DOMContentLoaded', () => { const md = $('#modal'); if (md) md.onclick = e => { if (e.target.id === 'modal') closeModal(); }; });
 
 function optBarang(filter, selectedKode){
-  return S.barang
-    .filter(b => !filter || (Array.isArray(filter) ? filter.includes(b.lini) : b.tipe === filter))
-    .map(b => `<option value="${b.id}" ${b.kode === selectedKode ? 'selected' : ''}>${esc(b.kode)} · ${esc(b.nama)}</option>`)
-    .join('');
+  return S.barang.filter(b => !filter || (Array.isArray(filter) ? filter.includes(b.lini) : b.tipe === filter))
+    .map(b => `<option value="${b.id}" ${b.kode === selectedKode ? 'selected' : ''}>${esc(b.kode)} · ${esc(b.nama)}</option>`).join('');
 }
 function itemRow(prefix, filter, selectedKode){
   return `<div class="irow">
     <select class="${prefix}-brg">${optBarang(filter, selectedKode)}</select>
-    <input class="${prefix}-qty" type="number" min="1" value="1">
+    <input class="${prefix}-qty" type="number" min="1" step="any" value="1">
     <input class="${prefix}-hrg" type="number" min="0" value="0">
     <button class="x2" onclick="this.parentNode.remove()">✕</button>
   </div>`;
 }
 function addRow(cid, prefix, filter){
-  const el = document.getElementById(cid);
-  if (el) el.insertAdjacentHTML('beforeend', itemRow(prefix, filter));
+  const el = document.getElementById(cid); if (el) el.insertAdjacentHTML('beforeend', itemRow(prefix, filter));
 }
 function readRows(prefix){
-  return [...document.querySelectorAll('.irow')]
-    .filter(r => r.querySelector('.' + prefix + '-brg'))
-    .map(r => ({
-      barangId: r.querySelector('.' + prefix + '-brg').value,
-      qty: +r.querySelector('.' + prefix + '-qty').value || 0,
-      harga: +r.querySelector('.' + prefix + '-hrg').value || 0,
-    })).filter(x => x.barangId && x.qty > 0);
+  return [...document.querySelectorAll('.irow')].filter(r => r.querySelector('.' + prefix + '-brg'))
+    .map(r => ({ barangId: r.querySelector('.' + prefix + '-brg').value, qty: +r.querySelector('.' + prefix + '-qty').value || 0, harga: +r.querySelector('.' + prefix + '-hrg').value || 0 }))
+    .filter(x => x.barangId && x.qty > 0);
 }
 document.addEventListener('change', e => {
   if (e.target.matches('select[class$="-brg"]')){
-    const row = e.target.closest('.irow');
-    const b = brg(e.target.value); if (!b) return;
-    const hrg = row.querySelector('input[class$="-hrg"]');
-    const prefix = e.target.className.replace('-brg','');
+    const row = e.target.closest('.irow'); const b = brg(e.target.value); if (!b) return;
+    const hrg = row.querySelector('input[class$="-hrg"]'); const prefix = e.target.className.replace('-brg','');
     if (hrg && (!+hrg.value || hrg.dataset.auto === '1')){
-      hrg.value = prefix.startsWith('o') || prefix.startsWith('j')
-        ? (b.hargaJual || b.hargaBeli) : b.hargaBeli;
+      hrg.value = prefix.startsWith('o') || prefix.startsWith('j') ? (b.hargaJual || b.hargaBeli) : b.hargaBeli;
       hrg.dataset.auto = '1';
     }
   }
@@ -1089,164 +883,78 @@ document.addEventListener('change', e => {
 let installPrompt = null;
 function showInstall(text, fn){
   if ($('#ib')) return;
-  const b = document.createElement('button');
-  b.id = 'ib';
-  b.innerHTML = text + ' <span style="margin-left:8px;opacity:.7">✕</span>';
-  b.style.cssText = `position:fixed;bottom:calc(86px + env(safe-area-inset-bottom));
-    left:50%;transform:translateX(-50%);background:#2d5016;color:#fff;
-    padding:12px 22px;border:0;border-radius:30px;font:600 14px Figtree;
-    box-shadow:0 4px 12px rgba(0,0,0,.25);z-index:9999;white-space:nowrap;
-    font-family:inherit;cursor:pointer;`;
-  b.onclick = ev => {
-    if (ev.target.tagName === 'SPAN'){ b.remove(); return; }
-    fn();
-  };
+  const b = document.createElement('button'); b.id = 'ib'; b.innerHTML = text + ' <span style="margin-left:8px;opacity:.7">✕</span>';
+  b.style.cssText = `position:fixed;bottom:calc(86px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:#2d5016;color:#fff;padding:12px 22px;border:0;border-radius:30px;font:600 14px Figtree;box-shadow:0 4px 12px rgba(0,0,0,.25);z-index:9999;white-space:nowrap;font-family:inherit;cursor:pointer;`;
+  b.onclick = ev => { if (ev.target.tagName === 'SPAN'){ b.remove(); return; } fn(); };
   document.body.appendChild(b);
 }
 window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  installPrompt = e;
-  showInstall('⬇ Install Aplikasi', async () => {
-    installPrompt.prompt();
-    await installPrompt.userChoice;
-    installPrompt = null;
-    $('#ib')?.remove();
-  });
+  e.preventDefault(); installPrompt = e;
+  showInstall('⬇ Install Aplikasi', async () => { installPrompt.prompt(); await installPrompt.userChoice; installPrompt = null; $('#ib')?.remove(); });
 });
 window.addEventListener('appinstalled', () => $('#ib')?.remove());
-if (/iphone|ipad|ipod/i.test(navigator.userAgent) &&
-    !(matchMedia('(display-mode: standalone)').matches || navigator.standalone)){
-  window.addEventListener('load', () => showInstall('⬇ Cara pasang di iPhone', () => {
-    alert('Buka lewat Safari → Bagikan → "Tambah ke Layar Utama".');
-  }));
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !(matchMedia('(display-mode: standalone)').matches || navigator.standalone)){
+  window.addEventListener('load', () => showInstall('⬇ Cara pasang di iPhone', () => { alert('Buka lewat Safari → Bagikan → "Tambah ke Layar Utama".'); }));
 }
 
 window.addEventListener('online', () => { updateStatus(); toast('Online'); flush(); });
 window.addEventListener('offline', () => { updateStatus(); toast('Offline','error'); });
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden){
-    flush();
-    checkAppUpdate(false);
-  }
-});
+document.addEventListener('visibilitychange', () => { if (!document.hidden){ flush(); checkAppUpdate(false); } });
 
 const _api = new URLSearchParams(location.search).get('api');
 if (_api){ localStorage[K_URL] = _api; history.replaceState(null,'',location.pathname); }
-if (new URLSearchParams(location.search).get('fresh'))
-  history.replaceState(null,'',location.pathname);
+if (new URLSearchParams(location.search).get('fresh')) history.replaceState(null,'',location.pathname);
 
 function boot(){
   if (!hasUrl()){ localStorage[K_URL] = DEFAULT_URL; }
-
-  if (!isLoggedIn()){
-    if (typeof renderLogin === 'function') renderLogin();
-    return;
-  }
+  if (!isLoggedIn()){ if (typeof renderLogin === 'function') renderLogin(); return; }
 
   const u = currentUser();
-  if (u.role !== 'owner') {
-    activeDiv = u.entity;
-  } else if (!localStorage[K_ACTIVE_DIV]) {
-    activeDiv = 'HQ';
-  }
+  if (u.role !== 'owner') { activeDiv = u.entity; }
+  else if (!localStorage[K_ACTIVE_DIV]) { activeDiv = 'HQ'; }
 
-  hideWelcome();
-  renderNav();
-  renderSidebar();
-  updateStatus();
-
-  $$('.view').forEach(v => {
-    const id = v.id.replace('v-','');
-    if (!canAccess(id)) v.style.display = 'none';
-  });
+  hideWelcome(); renderNav(); renderSidebar(); updateStatus();
+  $$('.view').forEach(v => { const id = v.id.replace('v-',''); if (!canAccess(id)) v.style.display = 'none'; });
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + view));
-
-  refreshAll();
-
-  checkAppUpdate(false);
+  refreshAll(); checkAppUpdate(false);
 }
 window.bootApp = boot;
 
 /* ═══════════════════════════════════════════════════════════════
-   BACKUP & RESTORE (Khusus IMB ERP)
+   BACKUP & RESTORE & RECALC KAS
    ═══════════════════════════════════════════════════════════════ */
 function backupAllData() {
   try {
-    const data = {
-      _app: 'IMB_ERP',
-      _version: '1.0',
-      _exported_at: new Date().toISOString(),
-      state: S
-    };
-
+    const data = { _app: 'IMB_ERP', _version: '1.0', _exported_at: new Date().toISOString(), state: S };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const link = document.createElement('a');
-    const today = new Date().toISOString().split('T')[0];
-
-    link.href = URL.createObjectURL(blob);
-    link.download = `Backup_IMB_${today}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const link = document.createElement('a'); const today = new Date().toISOString().split('T')[0];
+    link.href = URL.createObjectURL(blob); link.download = `Backup_IMB_${today}.json`;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(link.href), 5000);
-
     toast('✅ File backup berhasil didownload');
-  } catch (err) {
-    console.error(err);
-    toast('Gagal backup: ' + err.message, 'error');
-  }
+  } catch (err) { console.error(err); toast('Gagal backup: ' + err.message, 'error'); }
 }
 
 function restoreAllData(input) {
-  const file = input.files[0];
-  if (!file) return;
-
-  if (!confirm('⚠️ PERINGATAN!\n\nRestore data akan MENGHAPUS semua data lokal saat ini dan menimpanya dengan data dari file backup.\n\nLanjutkan?')) {
-    input.value = '';
-    return;
-  }
-
+  const file = input.files[0]; if (!file) return;
+  if (!confirm('⚠️ PERINGATAN!\n\nRestore data akan MENGHAPUS semua data lokal saat ini dan menimpanya dengan data dari file backup.\n\nLanjutkan?')) { input.value = ''; return; }
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
       const data = JSON.parse(e.target.result);
-      if (!data.state) {
-        throw new Error('Format file tidak dikenali. Pastikan ini file backup IMB ERP.');
-      }
-
-      S = data.state;
-      migrate();
-      persist();
-
-      // Kirim hasil restore ke Sheet agar tidak hilang saat pull berikutnya
-      // (K_SERVER_TIME sengaja TIDAK dihapus supaya pull berikutnya tetap inkremental)
-      pushAllToSheet();
-
+      if (!data.state) throw new Error('Format file tidak dikenali. Pastikan ini file backup IMB ERP.');
+      S = data.state; migrate(); persist(); pushAllToSheet();
       toast('✅ Data berhasil direstore! Memuat ulang aplikasi...');
-      setTimeout(() => {
-        location.reload();
-      }, 1500);
-
-    } catch (err) {
-      console.error(err);
-      toast('Gagal restore: ' + err.message, 'error');
-      input.value = '';
-    }
+      setTimeout(() => { location.reload(); }, 1500);
+    } catch (err) { console.error(err); toast('Gagal restore: ' + err.message, 'error'); input.value = ''; }
   };
   reader.readAsText(file);
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   PEMULIHAN KAS DARI RIWAYAT TRANSAKSI
-   ═══════════════════════════════════════════════════════════════ */
 function recalcKas(){
-  const kas = {};
-  Object.keys(ENTITIES).forEach(k => kas[k] = 0);
+  const kas = {}; Object.keys(ENTITIES).forEach(k => kas[k] = 0);
   const add = (e, v) => { const k = e || 'HQ'; kas[k] = (kas[k] || 0) + v; };
-  const totalFaktur = p => {
-    const dpp = sum(p.items || [], i => i.qty * i.harga);
-    return dpp + (p.ppnPersen ? Math.round(dpp * p.ppnPersen / 100) : 0);
-  };
+  const totalFaktur = p => { const dpp = sum(p.items || [], i => i.qty * i.harga); return dpp + (p.ppnPersen ? Math.round(dpp * p.ppnPersen / 100) : 0); };
 
   const bayarKeFaktur = {};
   (S.pembayaran || []).forEach(b => {
@@ -1270,11 +978,6 @@ function recalcKas(){
     add(p.entity, Math.max(0, paid - (terimaKeFaktur[p.id] || 0)));
   });
 
-  Object.entries(S.kasKecil.perEntity || {}).forEach(([e, o]) =>
-    (o.mutasi || []).forEach(m => add(e, (m.keluar || 0) - (m.masuk || 0))));
-
-  Object.keys(kas).forEach(k => {
-    if (!S.entities[k]) S.entities[k] = { kas: 0 };
-    S.entities[k].kas = kas[k];
-  });
+  Object.entries(S.kasKecil.perEntity || {}).forEach(([e, o]) => (o.mutasi || []).forEach(m => add(e, (m.keluar || 0) - (m.masuk || 0))));
+  Object.keys(kas).forEach(k => { if (!S.entities[k]) S.entities[k] = { kas: 0 }; S.entities[k].kas = kas[k]; });
 }

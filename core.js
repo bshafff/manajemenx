@@ -51,16 +51,21 @@ function toast(msg, type, ms){
 const K_URL        = 'erp_url';
 const K_DATA       = 'erp_data_v6';
 const K_QUEUE      = 'erp_queue_v2';
+const K_FAILED     = 'erp_failed';      // operasi yang gagal 5x (tidak memblokir antrian)
 const K_BOOT       = 'erp_bootstrapped';
 const K_SESSION    = 'erp_session';
 const K_ACTIVE_DIV = 'erp_active_div';
-const K_SERVER_TIME= 'erp_server_time'; // Waktu terakhir data ditarik dari server
+const K_SERVER_TIME= 'erp_server_time'; // Waktu terakhir data ditarik dari server (HANYA diisi oleh bootstrapSync)
 
 const getUrl   = () => localStorage[K_URL] || '';
 const hasUrl   = () => !!localStorage[K_URL];
 const getQueue = () => { try { return JSON.parse(localStorage[K_QUEUE] || '[]'); }
                          catch { return []; } };
 const setQueue = q => { localStorage[K_QUEUE] = JSON.stringify(q); updateStatus(); };
+
+const getFailed = () => { try { return JSON.parse(localStorage[K_FAILED] || '[]'); }
+                          catch { return []; } };
+const failedCount = () => getFailed().length;
 
 /* ═══════════════════════════════════════════════════════════════
    STATE & MIGRATION
@@ -304,7 +309,7 @@ function stokKeluar(id, qty){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SYNC & STATUS (UPGRADED TO BATCH)
+   SYNC & STATUS (BATCH + ACK PER ITEM)
    ═══════════════════════════════════════════════════════════════ */
 let busy = false;
 function trackSync(){ localStorage.last_sync = Date.now(); }
@@ -315,60 +320,107 @@ function lastSyncText(){
   return '✓ Tersinkron — ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
 
+/* Kunci unik operasi: type|id (untuk menggabungkan upsert ganda) */
+const opKey = o => (o.type || '') + '|' + (o.id || (o.record && o.record.id) || '');
+
+function moveToFailed(op, err){
+  const f = getFailed();
+  delete op._try;
+  f.push({ op, err: String(err || ''), at: Date.now() });
+  localStorage[K_FAILED] = JSON.stringify(f);
+}
+
+/* Kirim ulang operasi yang gagal (bisa dipanggil dari tombol / console) */
+function retryFailed(){
+  const f = getFailed();
+  if (!f.length){ toast('Tidak ada data gagal'); return; }
+  const q = getQueue();
+  f.forEach(x => { x.op._try = 0; q.push(x.op); });
+  localStorage[K_FAILED] = '[]';
+  setQueue(q);
+  flush();
+}
+
 async function flush(){
   const url = getUrl();
   if (!url || url === 'DEMO' || busy || !navigator.onLine) return;
   busy = true;
-  updateStatus(); 
-  
+  updateStatus();
+
   try {
     while (true){
       const q = getQueue();
       if (!q.length) break;
-      
-      // Ambil maksimal 50 item per kirim (Batch)
+
+      // Pastikan tiap operasi punya ID unik (antrian lama belum punya)
+      let dirty = false;
+      q.forEach(o => { if (!o._q){ o._q = uid(); dirty = true; } });
+      if (dirty) setQueue(q);
+
+      // Maksimal 50 operasi per kirim
       const chunk = q.slice(0, 50);
       const payload = { action: 'batch', ops: chunk, key: API_KEY };
-      
+
+      let json = null;
       try {
         const res = await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
         const txt = await res.text();
-        let json;
-        try { json = JSON.parse(txt); } catch(e) { json = null; }
-        
-        if (!json || !json.ok) {
-          console.error("Sync Server Error:", txt);
-          break; 
+        try { json = JSON.parse(txt); } catch(_){ json = null; }
+        if (!json || !json.ok || !Array.isArray(json.results)){
+          console.error('Sync Server Error:', txt);
+          break;
         }
-        
-        // Simpan serverTime untuk Incremental Pull berikutnya
-        if (json.serverTime) localStorage[K_SERVER_TIME] = json.serverTime;
-        
-        // Hapus dari antrean lokal
-        const cur = getQueue(); 
-        cur.splice(0, chunk.length); 
-        setQueue(cur);
-        updateStatus(); 
-      } catch(e){ 
-        console.error("Network Error:", e);
-        break; 
+      } catch(e){
+        console.error('Network Error:', e);
+        break;
       }
+
+      // Hanya operasi yang dibalas ok:true yang dihapus dari antrian
+      const acked = new Set();
+      const failedMap = new Map();
+      chunk.forEach((op, i) => {
+        const r = json.results[i];
+        if (r && r.ok) acked.add(op._q);
+        else failedMap.set(op._q, (r && r.error) || 'tanpa balasan');
+      });
+
+      // Baca antrian TERBARU (mungkin sudah ada item baru selama request berjalan)
+      const rest = [];
+      getQueue().forEach(op => {
+        if (acked.has(op._q)) return;
+        if (failedMap.has(op._q)){
+          op._try = (op._try || 0) + 1;
+          if (op._try >= 5){ moveToFailed(op, failedMap.get(op._q)); return; }
+        }
+        rest.push(op);
+      });
+      setQueue(rest);
+
+      if (failedMap.size) break; // coba lagi di pemicu berikutnya
     }
     if (!getQueue().length && hasUrl() && getUrl() !== 'DEMO') trackSync();
-  } finally { 
-    busy = false; 
-    updateStatus(); 
+  } finally {
+    busy = false;
+    updateStatus();
   }
 }
 
 function queue(payload){
   if (!hasUrl() || getUrl() === 'DEMO') return;
-  // Suntikkan updatedAt untuk fitur Stale Guard di GAS v2.0
+  // updatedAt dipakai Stale Guard di Code.gs v2.0
   if (payload.action === 'upsert' && payload.record) {
     payload.record.updatedAt = new Date().toISOString();
   }
-  const q = getQueue(); q.push(payload);
-  setQueue(q); flush();
+  let q = getQueue();
+  // Gabungkan: upsert lama untuk record yang sama dibuang, hanya versi terbaru yang dikirim
+  if (payload.action === 'upsert' || payload.action === 'delete'){
+    const key = opKey(payload);
+    q = q.filter(o => !(o.action === 'upsert' && opKey(o) === key));
+  }
+  payload._q = uid();
+  q.push(payload);
+  setQueue(q);
+  flush();
 }
 
 async function sync(){
@@ -384,28 +436,32 @@ function updateStatus(){
   const syEl = $('#sy');
   const btnSync = $('#btn-sync');
   if (!syEl) return;
-  
-  if (!hasUrl()){ 
-    syEl.textContent = '○ Belum tersambung'; 
+
+  if (!hasUrl()){
+    syEl.textContent = '○ Belum tersambung';
     if (btnSync) btnSync.innerHTML = '↑ Sync';
-    return; 
+    return;
   }
 
   const isDemo = getUrl() === 'DEMO';
   const n = getQueue().length;
+  const nf = failedCount();
   const online = navigator.onLine;
 
   if (isDemo){
     syEl.textContent = '🎬 Mode demo';
     if (btnSync) btnSync.innerHTML = '↑ Sync';
   } else if (!online){
-    syEl.textContent = '🔴 Offline · lokal';
+    syEl.textContent = n > 0 ? `🔴 Offline · ${n} data tersimpan lokal` : '🔴 Offline · lokal';
     if (btnSync) btnSync.innerHTML = '↑ Sync';
   } else if (busy) {
     syEl.textContent = `⏳ Menyingkronkan ${n > 0 ? n + ' data' : ''}...`;
     if (btnSync) btnSync.innerHTML = `<span style="display:inline-block; animation:spin 1s linear infinite">↻</span> Sync`;
   } else if (n > 0){
     syEl.textContent = `⏳ ${n} perubahan menunggu sync`;
+    if (btnSync) btnSync.innerHTML = '↑ Sync';
+  } else if (nf > 0){
+    syEl.textContent = `⚠ ${nf} data gagal sync`;
     if (btnSync) btnSync.innerHTML = '↑ Sync';
   } else {
     syEl.textContent = lastSyncText();
@@ -422,7 +478,7 @@ let currentVer = localStorage.app_v || '0';
 async function checkAppUpdate(isManual = false) {
   const btn = document.getElementById('btn-update');
   if (!btn) return;
-  
+
   if (isManual) {
     btn.innerHTML = '⏳ Memeriksa...';
     btn.style.cursor = 'wait';
@@ -487,7 +543,7 @@ async function hardReset() {
       await Promise.all(keys.map(k => caches.delete(k)));
     }
   } catch(e) {}
-  
+
   setTimeout(() => {
     window.location.href = window.location.pathname + '?fresh=' + Date.now();
   }, 800);
@@ -499,137 +555,174 @@ async function hardReset() {
 async function bootstrapSync(){
   if (!hasUrl() || getUrl() === 'DEMO') return;
   if (!navigator.onLine){ toast('Offline — sync otomatis nanti'); return; }
-  
+
+  // 1) Kirim dulu semua perubahan lokal. Pull TIDAK BOLEH jalan kalau masih ada antrian,
+  //    supaya data offline yang belum terkirim tidak tertimpa data dari Sheet.
+  await flush();
+  if (getQueue().length){
+    toast('Masih ada data belum terkirim — tarik data ditunda', 'error');
+    return;
+  }
+
   const lastTime = localStorage[K_SERVER_TIME];
   const isFirstPull = !lastTime;
-  
+
   toast(isFirstPull ? 'Memuat semua data dari Sheet…' : 'Memuat pembaruan dari Sheet…');
-  
+
   try {
     let url = getUrl() + '?action=pull&key=' + encodeURIComponent(API_KEY);
-    if (lastTime) url += '&since=' + encodeURIComponent(lastTime);
-    
+    if (lastTime){
+      // Mundur 5 detik sebagai margin (merge bersifat idempotent, aman bila ada yang terambil ulang)
+      const since = new Date(Date.parse(lastTime) - 5000).toISOString();
+      url += '&since=' + encodeURIComponent(since);
+    }
+
     const res = await fetch(url);
     const txt = await res.text();
     let json; try { json = JSON.parse(txt); } catch(e){ throw new Error('invalid'); }
-    
-    if (json && json.ok && json.data){
-      const d = json.data;
-      
-      if (isFirstPull) {
-        // --- FULL REPLACE (Pertama kali tarik data) ---
-        if (d.barang?.length)    S.barang     = d.barang;
-        if (d.supplier)          S.supplier   = d.supplier;
-        if (d.pelanggan)         S.pelanggan  = d.pelanggan;
-        if (d.pembelian)         S.pembelian  = d.pembelian;
-        if (d.penjualan)         S.penjualan  = d.penjualan;
-        if (d.pembayaran)        S.pembayaran = d.pembayaran;
-        if (d.penerimaan)        S.penerimaan = d.penerimaan;
-        if (d.transfer)          S.transfer   = d.transfer;
-        if (d.permintaan)        S.permintaan = d.permintaan;
-        if (d.pesanan)           S.pesanan    = d.pesanan;
-        if (d.users?.length)     S.users      = d.users;
-        if (d.produksi)          S.produksi   = d.produksi;
-        if (d.panen)             S.panen      = d.panen;
-        if (d.kandang)           S.kandang    = d.kandang;
-        if (d.kandangLog)        S.kandangLog = d.kandangLog;
 
-        if (d.kk?.length){
-          const per = {};
-          ['HQ','SB','DR','AY','PK'].forEach(k => per[k] = { saldo: 0, mutasi: [] });
-          d.kk.forEach(m => {
-            const e = m.entity || 'HQ';
-            if (!per[e]) per[e] = { saldo:0, mutasi:[] };
-            per[e].mutasi.push(m);
-            per[e].saldo += (m.masuk||0) - (m.keluar||0);
-          });
-          S.kasKecil.perEntity = per;
-        }
-        
-      } else {
-        // --- INCREMENTAL MERGE (Hanya gabungkan data yang berubah) ---
-        const mergeData = (key, newItems) => {
-          if (!newItems || !newItems.length) return;
-          const map = new Map(S[key].map(x => [x.id, x]));
-          newItems.forEach(item => map.set(item.id, item)); 
-          S[key] = Array.from(map.values()).sort((a,b) => (b.tgl || '').localeCompare(a.tgl || '') || (b.id || '').localeCompare(a.id || ''));
-        };
-        
-        mergeData('barang', d.barang);
-        mergeData('supplier', d.supplier);
-        mergeData('pelanggan', d.pelanggan);
-        mergeData('pembelian', d.pembelian);
-        mergeData('penjualan', d.penjualan);
-        mergeData('pembayaran', d.pembayaran);
-        mergeData('penerimaan', d.penerimaan);
-        mergeData('transfer', d.transfer);
-        mergeData('permintaan', d.permintaan);
-        mergeData('pesanan', d.pesanan);
-        mergeData('users', d.users);
-        mergeData('produksi', d.produksi);
-        mergeData('panen', d.panen);
-        mergeData('kandang', d.kandang);
-        mergeData('kandangLog', d.kandangLog);
-
-        // Merge Kas Kecil
-        if (d.kk && d.kk.length) {
-          d.kk.forEach(m => {
-            const ent = m.entity || 'HQ';
-            if (!S.kasKecil.perEntity[ent]) S.kasKecil.perEntity[ent] = {saldo:0, mutasi:[]};
-            const per = S.kasKecil.perEntity[ent];
-            const idx = per.mutasi.findIndex(x => x.id === m.id);
-            if (idx >= 0) per.mutasi[idx] = m;
-            else per.mutasi.unshift(m);
-          });
-          Object.keys(S.kasKecil.perEntity).forEach(k => {
-            const obj = S.kasKecil.perEntity[k];
-            obj.saldo = obj.mutasi.reduce((acc, curr) => acc + ((curr.masuk||0) - (curr.keluar||0)), 0);
-          });
-        }
-
-        // Handle Tombstone (Penghapusan dari device lain)
-        if (json.deleted && json.deleted.length) {
-          json.deleted.forEach(del => {
-            if (S[del.type] && Array.isArray(S[del.type])) {
-              S[del.type] = S[del.type].filter(x => x.id !== del.id);
-            }
-            // Khusus kas kecil
-            if (del.type === 'kk') {
-               Object.keys(S.kasKecil.perEntity).forEach(k => {
-                 const obj = S.kasKecil.perEntity[k];
-                 obj.mutasi = obj.mutasi.filter(x => x.id !== del.id);
-                 obj.saldo = obj.mutasi.reduce((acc, curr) => acc + ((curr.masuk||0) - (curr.keluar||0)), 0);
-               });
-            }
-          });
-        }
-      }
-      
-      // Simpan serverTime agar sync berikutnya incremental
-      if (json.serverTime) localStorage[K_SERVER_TIME] = json.serverTime;
-      
-      migrate();
-      recalcKas();
-      persist(); refreshAll();
-      trackSync();
-      toast('✓ Data disinkronkan dengan Sheet');
+    if (!(json && json.ok && json.data)){
+      toast('Gagal memuat dari Sheet' + (json && json.error ? ': ' + json.error : ''), 'error');
       return;
     }
+
+    const d = json.data;
+
+    if (isFirstPull) {
+      // --- FULL REPLACE (pertama kali tarik data) ---
+      const ada = (d.barang?.length) || (d.supplier?.length) || (d.pelanggan?.length) || (d.pembelian?.length) || (d.penjualan?.length);
+
+      if (!ada){
+        // Sheet masih kosong → kirim data lokal ke Sheet
+        if (json.serverTime) localStorage[K_SERVER_TIME] = json.serverTime;
+        pushAllToSheet();
+        return;
+      }
+
+      if (d.barang?.length)    S.barang     = d.barang;
+      if (d.supplier)          S.supplier   = d.supplier;
+      if (d.pelanggan)         S.pelanggan  = d.pelanggan;
+      if (d.pembelian)         S.pembelian  = d.pembelian;
+      if (d.penjualan)         S.penjualan  = d.penjualan;
+      if (d.pembayaran)        S.pembayaran = d.pembayaran;
+      if (d.penerimaan)        S.penerimaan = d.penerimaan;
+      if (d.transfer)          S.transfer   = d.transfer;
+      if (d.permintaan)        S.permintaan = d.permintaan;
+      if (d.pesanan)           S.pesanan    = d.pesanan;
+      if (d.users?.length)     S.users      = d.users;
+      if (d.produksi)          S.produksi   = d.produksi;
+      if (d.panen)             S.panen      = d.panen;
+      if (d.kandang)           S.kandang    = d.kandang;
+      if (d.kandangLog)        S.kandangLog = d.kandangLog;
+
+      if (d.kk?.length){
+        const per = {};
+        ['HQ','SB','DR','AY','PK'].forEach(k => per[k] = { saldo: 0, mutasi: [] });
+        d.kk.forEach(m => {
+          const e = m.entity || 'HQ';
+          if (!per[e]) per[e] = { saldo:0, mutasi:[] };
+          per[e].mutasi.push(m);
+          per[e].saldo += (m.masuk||0) - (m.keluar||0);
+        });
+        S.kasKecil.perEntity = per;
+      }
+
+    } else {
+      // --- INCREMENTAL MERGE (hanya gabungkan data yang berubah) ---
+      // Urutan lama dipertahankan; record baru ditaruh di depan (terbaru di atas).
+      // Record lokal yang updatedAt-nya lebih baru tidak ditimpa.
+      const mergeData = (key, newItems) => {
+        if (!newItems || !newItems.length) return;
+        if (!Array.isArray(S[key])) S[key] = [];
+        const arr = S[key];
+        const pos = new Map(arr.map((x, i) => [x.id, i]));
+        const fresh = [];
+        newItems.forEach(item => {
+          const i = pos.get(item.id);
+          if (i === undefined){ fresh.push(item); return; }
+          const old = arr[i];
+          if (old.updatedAt && item.updatedAt && old.updatedAt > item.updatedAt) return;
+          arr[i] = item;
+        });
+        S[key] = fresh.concat(arr);
+      };
+
+      mergeData('barang', d.barang);
+      mergeData('supplier', d.supplier);
+      mergeData('pelanggan', d.pelanggan);
+      mergeData('pembelian', d.pembelian);
+      mergeData('penjualan', d.penjualan);
+      mergeData('pembayaran', d.pembayaran);
+      mergeData('penerimaan', d.penerimaan);
+      mergeData('transfer', d.transfer);
+      mergeData('permintaan', d.permintaan);
+      mergeData('pesanan', d.pesanan);
+      mergeData('users', d.users);
+      mergeData('produksi', d.produksi);
+      mergeData('panen', d.panen);
+      mergeData('kandang', d.kandang);
+      mergeData('kandangLog', d.kandangLog);
+
+      // Merge Kas Kecil
+      if (d.kk && d.kk.length) {
+        d.kk.forEach(m => {
+          const ent = m.entity || 'HQ';
+          if (!S.kasKecil.perEntity[ent]) S.kasKecil.perEntity[ent] = {saldo:0, mutasi:[]};
+          const per = S.kasKecil.perEntity[ent];
+          const idx = per.mutasi.findIndex(x => x.id === m.id);
+          if (idx >= 0){
+            const old = per.mutasi[idx];
+            if (old.updatedAt && m.updatedAt && old.updatedAt > m.updatedAt) return;
+            per.mutasi[idx] = m;
+          } else per.mutasi.unshift(m);
+        });
+        Object.keys(S.kasKecil.perEntity).forEach(k => {
+          const obj = S.kasKecil.perEntity[k];
+          obj.saldo = obj.mutasi.reduce((acc, curr) => acc + ((curr.masuk||0) - (curr.keluar||0)), 0);
+        });
+      }
+
+      // Tombstone (penghapusan dari device lain)
+      if (json.deleted && json.deleted.length) {
+        json.deleted.forEach(del => {
+          if (S[del.type] && Array.isArray(S[del.type])) {
+            S[del.type] = S[del.type].filter(x => x.id !== del.id);
+          }
+          if (del.type === 'kk') {
+            Object.keys(S.kasKecil.perEntity).forEach(k => {
+              const obj = S.kasKecil.perEntity[k];
+              obj.mutasi = obj.mutasi.filter(x => x.id !== del.id);
+              obj.saldo = obj.mutasi.reduce((acc, curr) => acc + ((curr.masuk||0) - (curr.keluar||0)), 0);
+            });
+          }
+        });
+      }
+    }
+
+    // Simpan serverTime (hanya di sini) agar pull berikutnya incremental
+    if (json.serverTime) localStorage[K_SERVER_TIME] = json.serverTime;
+
+    migrate();
+    recalcKas();
+    persist(); refreshAll();
+    trackSync();
+    toast('✓ Data disinkronkan dengan Sheet');
   } catch(e){
+    // Jangan push otomatis di sini: data lokal akan dianggap "terbaru" dan menimpa Sheet.
     console.warn('pull gagal:', e);
-    if (isFirstPull) pushAllToSheet(); // Hanya push full jika ini pertama kali
+    toast('Gagal memuat dari Sheet', 'error');
   }
 }
 
 function pushAllToSheet(){
-  const q = getQueue();
-  let c = 0;
-  const push = (t, r) => { 
-    if (r?.id) { 
-      r.updatedAt = new Date().toISOString();
-      q.push({ type:t, action:'upsert', record:r }); 
-      c++; 
-    } 
+  if (!hasUrl() || getUrl() === 'DEMO') return;
+  const now = new Date().toISOString();
+  const ops = [];
+  const push = (t, r) => {
+    if (r?.id) {
+      r.updatedAt = now;
+      ops.push({ type:t, action:'upsert', record:r, _q: uid() });
+    }
   };
   S.barang.forEach(b => push('barang', b));
   (S.supplier||[]).forEach(s => push('supplier', s));
@@ -646,13 +739,17 @@ function pushAllToSheet(){
   (S.kandang||[]).forEach(p => push('kandang', p));
   (S.kandangLog||[]).forEach(p => push('kandangLog', p));
   (S.users||[]).forEach(u => push('users', u));
-  
+
   Object.values(S.kasKecil.perEntity||{}).forEach(o => (o.mutasi||[]).forEach(m => push('kk', m)));
-  
-  setQueue(q);
+
+  // Buang upsert lama di antrian untuk record yang sama (hindari kirim ganda)
+  const keys = new Set(ops.map(opKey));
+  const q = getQueue().filter(o => !(o.action === 'upsert' && keys.has(opKey(o))));
+  persist(); // simpan updatedAt yang baru di-stamp
+  setQueue(q.concat(ops));
   localStorage[K_BOOT] = '1';
-  if (c) {
-    toast('⬆ Mengirim ' + c + ' data…');
+  if (ops.length) {
+    toast('⬆ Mengirim ' + ops.length + ' data…');
     flush();
   }
 }
@@ -671,7 +768,6 @@ async function pullFromSheet(){
   if (!navigator.onLine){ toast('Sedang offline','error'); return; }
   toast('Memuat dari Sheet…');
   await bootstrapSync();
-  trackSync();
   updateStatus();
 }
 
@@ -682,7 +778,7 @@ let view = 'home';
 
 function renderNav(){
   const nav = $('#nav'); if (!nav) return;
-  
+
   let navItems = [];
   if (activeDiv === 'HQ') {
     navItems = [
@@ -725,7 +821,7 @@ function renderSidebar(){
       <div class="sb-item ${view==='dashboard'?'on':''}" onclick="openModule('dashboard')"><span class="sb-ic">📊</span><span class="sb-lbl">Dashboard Konsolidasi</span></div>
       <div class="sb-item ${view==='eksekutif'?'on':''}" onclick="openModule('eksekutif')"><span class="sb-ic">🧭</span><span class="sb-lbl">Ringkasan Eksekutif</span></div>
       <div class="sb-item ${view==='jurnal'?'on':''}" onclick="openModule('jurnal')"><span class="sb-ic">📚</span><span class="sb-lbl">Jurnal Global</span></div>
-      
+
       <div class="sb-section">Master Data</div>
       <div class="sb-item ${view==='barang'?'on':''}" onclick="openModule('barang')"><span class="sb-ic">📦</span><span class="sb-lbl">Barang</span></div>
       <div class="sb-item ${view==='supplier'?'on':''}" onclick="openModule('supplier')"><span class="sb-ic">🏭</span><span class="sb-lbl">Supplier</span></div>
@@ -751,16 +847,16 @@ function renderSidebar(){
     menuHtml = `
       <div class="sb-back" onclick="exitDiv()">← Kembali ke Pusat</div>
       <div class="sb-section" style="color:${d.warna}">${d.ico} Divisi ${d.nama}</div>
-      
+
       <div class="sb-item ${view==='dashboard'?'on':''}" onclick="openModule('dashboard')"><span class="sb-ic">📊</span><span class="sb-lbl">Dashboard</span></div>
-      
+
       <div class="sb-section">Transaksi</div>
       <div class="sb-item ${view==='penjualan'?'on':''}" onclick="openModule('penjualan')"><span class="sb-ic">🧾</span><span class="sb-lbl">Faktur Jual</span></div>
       <div class="sb-item ${view==='pembelian'?'on':''}" onclick="openModule('pembelian')"><span class="sb-ic">🛒</span><span class="sb-lbl">Faktur Beli</span></div>
       <div class="sb-item ${view==='penerimaan'?'on':''}" onclick="openModule('penerimaan')"><span class="sb-ic">💰</span><span class="sb-lbl">Penerimaan</span></div>
       <div class="sb-item ${view==='pembayaran'?'on':''}" onclick="openModule('pembayaran')"><span class="sb-ic">💸</span><span class="sb-lbl">Pembayaran</span></div>
       <div class="sb-item ${view==='kaskecil'?'on':''}" onclick="openModule('kaskecil')"><span class="sb-ic">👛</span><span class="sb-lbl">Kas Kecil</span></div>
-      
+
       <div class="sb-section">Laporan</div>
       <div class="sb-item ${view==='jurnal'?'on':''}" onclick="openModule('jurnal')"><span class="sb-ic">📚</span><span class="sb-lbl">Jurnal Divisi</span></div>
     `;
@@ -834,7 +930,7 @@ function refreshAll(){
 function renderHome(){
   const u = currentUser(); if (!u) return;
   const e = entInfo(u.entity);
-  
+
   const ico = document.getElementById('uc-ico');
   const nm  = document.getElementById('uc-nama');
   const inf = document.getElementById('uc-info');
@@ -863,7 +959,7 @@ function renderHome(){
     if (sysMenu) sysMenu.style.display = 'none';
     if (sysLabel) sysLabel.style.display = 'none';
   }
-  
+
   if (typeof applyMenuAccess === 'function') applyMenuAccess();
 }
 
@@ -985,9 +1081,9 @@ if (/iphone|ipad|ipod/i.test(navigator.userAgent) &&
 window.addEventListener('online', () => { updateStatus(); toast('Online'); flush(); });
 window.addEventListener('offline', () => { updateStatus(); toast('Offline','error'); });
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden){ 
-    flush(); 
-    checkAppUpdate(false); 
+  if (!document.hidden){
+    flush();
+    checkAppUpdate(false);
   }
 });
 
@@ -1015,15 +1111,15 @@ function boot(){
   renderNav();
   renderSidebar();
   updateStatus();
-  
+
   $$('.view').forEach(v => {
     const id = v.id.replace('v-','');
     if (!canAccess(id)) v.style.display = 'none';
   });
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + view));
-  
+
   refreshAll();
-  
+
   checkAppUpdate(false);
 }
 window.bootApp = boot;
@@ -1076,7 +1172,12 @@ function restoreAllData(input) {
       }
 
       S = data.state;
+      migrate();
       persist();
+
+      // Kirim hasil restore ke Sheet agar tidak hilang saat pull berikutnya
+      // (K_SERVER_TIME sengaja TIDAK dihapus supaya pull berikutnya tetap inkremental)
+      pushAllToSheet();
 
       toast('✅ Data berhasil direstore! Memuat ulang aplikasi...');
       setTimeout(() => {

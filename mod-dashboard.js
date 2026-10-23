@@ -5,6 +5,7 @@
 let chartOmzetInst = null;
 let chartLabaInst = null;
 let chartBiayaInst = null;
+let chartCashFlowInst = null;
 
 /* Helper Format Angka Sumbu Y Chart (Juta / Ribu) */
 function formatRpShort(v) {
@@ -79,20 +80,58 @@ function _renderDashboard(){
   });
   renderChartOmzet(omzetData);
 
-  // --- 4. CHART 2: Tren Laba (Line Chart 6 Bulan) ---
+  // --- 4. CHART 2, 3, 4: Data Bulanan (6 Bulan Terakhir) ---
   const months = [];
   const labaData = [];
+  const cashInData = [];
+  const cashOutData = [];
+  
   let curM = bulanIni;
   for (let i = 5; i >= 0; i--) {
     const d = new Date(curM + '-01');
     d.setMonth(d.getMonth() - i);
     const ym = d.toISOString().slice(0,7);
     months.push(d.toLocaleDateString('id-ID',{month:'short'}));
+    
     labaData.push(labaRugiBulan(ent, ym).bersih);
+    
+    // Kalkulasi Arus Kas Masuk (Penjualan Lunas + Penerimaan)
+    let inFlow = 0;
+    S.penjualan.forEach(p => {
+      if ((ent === 'ALL' || p.entity === ent) && p.status === 'lunas' && String(p.tgl).startsWith(ym)) {
+        inFlow += totSell(p);
+      }
+    });
+    S.penerimaan.forEach(p => {
+      if ((ent === 'ALL' || p.entity === ent) && String(p.tgl).startsWith(ym)) {
+        inFlow += (p.jumlah || 0);
+      }
+    });
+    
+    // Kalkulasi Arus Kas Keluar (Pembelian Lunas + Pembayaran + Kas Kecil)
+    let outFlow = 0;
+    S.pembelian.forEach(p => {
+      if ((ent === 'ALL' || p.entity === ent) && p.status === 'lunas' && String(p.tgl).startsWith(ym)) {
+        outFlow += totBuy(p);
+      }
+    });
+    S.pembayaran.forEach(p => {
+      if ((ent === 'ALL' || p.entity === ent) && String(p.tgl).startsWith(ym)) {
+        outFlow += (p.jumlah || 0);
+      }
+    });
+    let kkJ = ent === 'ALL' ? Object.values(S.kasKecil.perEntity||{}).flatMap(x=>x.mutasi||[]) : (S.kasKecil.perEntity?.[ent]?.mutasi||[]);
+    kkJ.forEach(m => {
+      if (m.keluar && String(m.tgl).startsWith(ym)) outFlow += m.keluar;
+    });
+
+    cashInData.push(inFlow);
+    cashOutData.push(outFlow);
   }
   renderChartLaba(months, labaData);
+  renderChartCashFlow(months, cashInData, cashOutData);
 
-  // --- 5. CHART 3: Komposisi Biaya (Donut Chart) ---
+  // --- 5. CHART 4: Komposisi Biaya (Donut Chart) ---
   let totalBahan = 0;
   let totalOperasional = 0;
   S.pembelian.forEach(p => { if(ent === 'ALL' || p.entity === ent) totalBahan += totBuy(p); });
@@ -191,10 +230,7 @@ function renderChartOmzet(data){
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: { 
-        y: { 
-          beginAtZero: true, 
-          ticks: { callback: v => formatRpShort(v) } 
-        } 
+        y: { beginAtZero: true, ticks: { callback: v => formatRpShort(v) } } 
       }
     }
   });
@@ -224,10 +260,41 @@ function renderChartLaba(labels, data){
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: { 
-        y: { 
-          beginAtZero: true, 
-          ticks: { callback: v => formatRpShort(v) } 
-        } 
+        y: { beginAtZero: true, ticks: { callback: v => formatRpShort(v) } } 
+      }
+    }
+  });
+}
+
+function renderChartCashFlow(labels, dataIn, dataOut){
+  const ctx = document.getElementById('chartCashFlow');
+  if (!ctx) return;
+  if (chartCashFlowInst) chartCashFlowInst.destroy();
+
+  chartCashFlowInst = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Kas Masuk',
+          data: dataIn,
+          backgroundColor: '#16a34a',
+          borderRadius: 4
+        },
+        {
+          label: 'Kas Keluar',
+          data: dataOut,
+          backgroundColor: '#dc2626',
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: {size: 11} } } },
+      scales: { 
+        y: { beginAtZero: true, ticks: { callback: v => formatRpShort(v) } } 
       }
     }
   });
@@ -259,3 +326,45 @@ function renderChartBiaya(bahan, operasional){
     }
   });
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   EXPORT CSV
+   ═══════════════════════════════════════════════════════════════ */
+function exportDashboardCSV(){
+  const ent = activeEntity();
+  const entLabel = ent === 'ALL' ? 'Konsolidasi (Semua Lini)' : entInfo(ent).nama;
+  const nc = neracaEnt(ent);
+  const lr = labaRugiEnt(ent);
+  
+  const rows = [
+    ['LAPORAN DASHBOARD IMB', '', ''],
+    ['Lini Usaha', entLabel, ''],
+    ['Tanggal Export', new Date().toLocaleString('id-ID'), ''],
+    ['', '', ''],
+    ['RINGKASAN LABA RUGI', '', ''],
+    ['Pendapatan', lr.pend, ''],
+    ['HPP', lr.hpp, ''],
+    ['Laba Kotor', lr.kotor, ''],
+    ['Beban Operasional', lr.beban, ''],
+    ['Laba Bersih', lr.bersih, ''],
+    ['', '', ''],
+    ['NERACA', '', ''],
+    ['Kas', nc.kas, ''],
+    ['Kas Kecil', nc.kk, ''],
+    ['Piutang', nc.piu, ''],
+    ['Persediaan', nc.stok, ''],
+    ['Total Aset', nc.aset, ''],
+    ['Hutang', nc.liab, ''],
+    ['Ekuitas', nc.ekuitas, '']
+  ];
+  
+  // downloadCSV fungsi ada di import.js
+  if (typeof downloadCSV === 'function') {
+    downloadCSV(`Laporan_Dashboard_${new Date().toISOString().slice(0,10)}.csv`, rows);
+    toast('✓ Laporan berhasil didownload');
+  } else {
+    toast('Fungsi download CSV tidak ditemukan', 'error');
+  }
+}
+
+window.exportDashboardCSV = exportDashboardCSV;

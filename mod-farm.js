@@ -121,12 +121,17 @@ function woSave(){
   if (!bahan.length || !output.length) return toast('Isi minimal 1 bahan dan 1 hasil', 'error');
   for (const x of bahan){ const b = brg(x.barangId);
     if (x.qty > b.stok) return toast(`Stok ${b.nama} cuma ${b.stok}`, 'error'); }
+  
   bahan.forEach(x => { x.hpp = stokKeluar(x.barangId, x.qty); });
   const total = sum(bahan, x => x.qty * x.hpp) + biaya;
   const qOut = sum(output, x => x.qty), hppUnit = total / qOut;
   output.forEach(x => { x.hppUnit = hppUnit; stokMasuk(x.barangId, x.qty, hppUnit); });
-  const rec = { id: uid(), no: 'WO-' + Date.now().toString().slice(-6), tgl, entity, nama, bahan, output, biaya, totalHpp: total, hppUnit };
+  
+  // Gunakan genDocNo
+  const rec = { id: uid(), no: genDocNo('WO'), tgl, entity, nama, bahan, output, biaya, totalHpp: total, hppUnit };
+  
   S.produksi.unshift(rec);
+  recalcStok();
   persist(); farmQueue('produksi', 'upsert', rec);
   closeModal(); renderProduksi(); toast(`✓ WO selesai · HPP ${rp(hppUnit)}/unit`);
 }
@@ -138,6 +143,7 @@ function woDel(id){
   w.bahan.forEach(x => { const b = brg(x.barangId); if (b) b.stok += x.qty; });
   w.output.forEach(x => { const b = brg(x.barangId); if (b) b.stok -= x.qty; });
   S.produksi = S.produksi.filter(x => x.id !== id);
+  recalcStok();
   persist(); farmQueue('produksi', 'delete', null, id); renderProduksi(); toast('Dihapus');
 }
 function renderProduksi(){
@@ -184,6 +190,7 @@ function panenSave(){
   items.forEach(i => stokMasuk(i.barangId, i.qty, hpp));
   const rec = { id: uid(), tgl: val('pn2-tgl'), entity: 'SB', batch: val('pn2-batch'), items, hpp };
   S.panen.unshift(rec);
+  recalcStok();
   persist(); farmQueue('panen', 'upsert', rec);
   closeModal(); renderPanen(); toast('✓ Panen dicatat, stok bertambah');
 }
@@ -194,6 +201,7 @@ function panenDel(id){
   if (!confirm('Hapus catatan panen? Stok dikurangi.')) return;
   h.items.forEach(i => { const b = brg(i.barangId); if (b) b.stok -= i.qty; });
   S.panen = S.panen.filter(x => x.id !== id);
+  recalcStok();
   persist(); farmQueue('panen', 'delete', null, id); renderPanen(); toast('Dihapus');
 }
 function renderPanen(){

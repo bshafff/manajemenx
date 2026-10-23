@@ -2,7 +2,7 @@
    KONFIGURASI
    ═══════════════════════════════════════════════════════════════ */
 // URL Baru dari Deploy Ulang Apps Script
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbzmVVov_iAx_1rKAasK1RwSdlgKypges_PbZeprvtw7-iFbftoI4sApmASkTOyKsx5l/exec';
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwHzvNoZcxGHl84H4lJk8lhDMZy85_Pq58Ea-OFnqjAnQBaguSz7nfNiz2K767Gg1S_/exec';
 const API_KEY = 'ERP_2026';
 const PPN_DEFAULT = 11;
 
@@ -776,6 +776,49 @@ async function pullFromSheet(){
    ═══════════════════════════════════════════════════════════════ */
 let view = 'home';
 
+/* Menu "Lainnya" — untuk HP & iPad portrait (nav bawah hanya muat 5 tombol) */
+function moreItems(){
+  const u = typeof currentUser === 'function' ? currentUser() : null;
+  const isOwner = !!u && u.role === 'owner';
+  const base = activeDiv === 'HQ' ? [
+    { id:'eksekutif', icon:'🧭', label:'Ringkasan Eksekutif' },
+    { id:'jurnal',    icon:'📚', label:'Jurnal Global' },
+    { id:'supplier',  icon:'🏭', label:'Supplier' },
+    { id:'pelanggan', icon:'👥', label:'Pelanggan' },
+    { id:'akun',      icon:'👤', label:'Kelola Akun' },
+  ] : [
+    { id:'pembayaran',icon:'💸', label:'Pembayaran' },
+    { id:'kaskecil',  icon:'👛', label:'Kas Kecil' },
+    { id:'jurnal',    icon:'📚', label:'Jurnal Divisi' },
+  ];
+  return base.filter(i => (i.id !== 'akun' || isOwner) && canAccess(i.id));
+}
+
+function openMore(){
+  const u = currentUser(); if (!u) return;
+  const isOwner = u.role === 'owner';
+  const row = (ic, label, js) =>
+    `<button class="more-item" onclick="${js}"><span class="more-ic">${ic}</span><span class="more-lbl">${esc(label)}</span><span class="more-arrow">›</span></button>`;
+
+  let html = '';
+  if (isOwner && activeDiv !== 'HQ') html += row('🏢', 'Kembali ke Pusat', 'closeModal();exitDiv()');
+  html += moreItems().map(i => row(i.icon, i.label, `closeModal();openModule('${i.id}')`)).join('');
+  if (isOwner && activeDiv === 'HQ'){
+    html += '<div class="more-sec">Divisi Usaha</div>' +
+      Object.keys(LINI).map(k => row(LINI[k].ico, LINI[k].nama, `closeModal();enterDiv('${k}')`)).join('');
+  }
+  html += '<div class="more-sec">Akun</div>' + row('🚪', 'Keluar', 'closeModal();logout()');
+
+  $('#mc').innerHTML = `
+    <div class="mhead">
+      <div><h3>Menu Lainnya</h3><div class="msub">${esc(u.nama)} · ${u.role.toUpperCase()}</div></div>
+      <button class="mx" onclick="closeModal()">×</button>
+    </div>
+    <div class="more-list">${html}</div>`;
+  modalOk = null;
+  $('#modal').classList.add('show');
+}
+
 function renderNav(){
   const nav = $('#nav'); if (!nav) return;
 
@@ -788,7 +831,6 @@ function renderNav(){
     ];
   } else {
     navItems = [
-      { id:'back', icon:'🏢', label:'Pusat' },
       { id:'dashboard', icon:'📊', label:'Dasbor' },
       { id:'penjualan', icon:'🧾', label:'Jual' },
       { id:'pembelian', icon:'🛒', label:'Beli' },
@@ -796,14 +838,15 @@ function renderNav(){
     ];
   }
 
-  nav.innerHTML = navItems.map(n => {
-    if (n.id === 'back') {
-      return `<button onclick="exitDiv()"><span class="ic">${n.icon}</span>${n.label}</button>`;
-    }
-    return `<button data-t="${n.id}" class="${n.id===view?'on':''}" onclick="openModule('${n.id}')">
+  const moreOn = moreItems().some(i => i.id === view);
+  nav.innerHTML = navItems.map(n =>
+    `<button data-t="${n.id}" class="${n.id===view?'on':''}" onclick="openModule('${n.id}')">
        <span class="ic">${n.icon}</span>${n.label}
-     </button>`;
-  }).join('');
+     </button>`
+  ).join('') +
+  `<button data-t="more" class="${moreOn?'on':''}" onclick="openMore()">
+     <span class="ic">⋯</span>Lainnya
+   </button>`;
 }
 
 function renderSidebar(){

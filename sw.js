@@ -1,7 +1,7 @@
-const CACHE = 'imb-v13';
+const CACHE = 'imb-v16';
 const SHELL = [
   './', './index.html', './style.css',
-  './core.js', './entities.js', './auth.js', './import.js',
+  './core.js', './auth.js', './import.js',
   './mod-print.js', './app.js',
   './mod-dashboard.js', './mod-barang.js', './mod-supplier.js',
   './mod-pelanggan.js', './mod-pembelian.js', './mod-penjualan.js',
@@ -60,7 +60,6 @@ self.addEventListener('fetch', e => {
         return res;
       })
       .catch(() => {
-        // ignoreSearch: true mencegah blank putih saat reload ?fresh=...
         return caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('./index.html'));
       })
   );

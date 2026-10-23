@@ -619,6 +619,7 @@ function renderSidebar(){
       <div class="sb-section">Kantor Pusat</div>
       <div class="sb-item ${view==='home'?'on':''}" onclick="openModule('home')"><span class="sb-ic">🏠</span><span class="sb-lbl">Home</span></div>
       <div class="sb-item ${view==='dashboard'?'on':''}" onclick="openModule('dashboard')"><span class="sb-ic">📊</span><span class="sb-lbl">Dashboard Konsolidasi</span></div>
+      <div class="sb-item ${view==='eksekutif'?'on':''}" onclick="openModule('eksekutif')"><span class="sb-ic">🧭</span><span class="sb-lbl">Ringkasan Eksekutif</span></div>
       <div class="sb-item ${view==='jurnal'?'on':''}" onclick="openModule('jurnal')"><span class="sb-ic">📚</span><span class="sb-lbl">Jurnal Global</span></div>
       
       <div class="sb-section">Master Data</div>
@@ -635,6 +636,11 @@ function renderSidebar(){
           <span class="sb-arrow">›</span>
         </div>`;
       }).join('')}
+
+      ${u.role === 'owner' ? `
+      <div class="sb-section">Sistem & Pengaturan</div>
+      <div class="sb-item ${view==='akun'?'on':''}" onclick="openModule('akun')"><span class="sb-ic">👤</span><span class="sb-lbl">Kelola Akun</span></div>
+      ` : ''}
     `;
   } else {
     const d = entInfo(activeDiv);
@@ -743,8 +749,17 @@ function renderHome(){
       </div>`;
     }).join('');
   }
+
+  const sysMenu = document.getElementById('sys-menu');
+  const sysLabel = document.getElementById('sys-label');
+  if (u.role === 'owner') {
+    if (sysMenu) sysMenu.style.display = '';
+    if (sysLabel) sysLabel.style.display = '';
+  } else {
+    if (sysMenu) sysMenu.style.display = 'none';
+    if (sysLabel) sysLabel.style.display = 'none';
+  }
   
-  // Panggil fungsi filter menu akses
   if (typeof applyMenuAccess === 'function') applyMenuAccess();
 }
 

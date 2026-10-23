@@ -1,4 +1,10 @@
 <div id="v-dashboard" class="view">
+  
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <h2 style="margin:0; font-family:Fraunces; color:var(--green);">Dasbor Bisnis</h2>
+    <button class="btn btn-s btn-sm" onclick="exportDashboardCSV()" style="background:#0284c7; color:#fff; border:none;">📥 Export CSV</button>
+  </div>
+
   <!-- HERO: Ringkasan Eksekutif -->
   <div class="hero-card" id="dash-hero"></div>
 
@@ -6,7 +12,7 @@
   <div class="grid" id="dash-stats"></div>
 
   <!-- CHARTS ROW -->
-  <div class="chart-grid">
+  <div class="chart-grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
     <div class="card">
       <h3>Omzet per Lini</h3>
       <div class="chart-container">
@@ -17,6 +23,12 @@
       <h3>Tren Laba Bersih (6 Bulan)</h3>
       <div class="chart-container">
         <canvas id="chartLaba"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Arus Kas (Masuk vs Keluar)</h3>
+      <div class="chart-container">
+        <canvas id="chartCashFlow"></canvas>
       </div>
     </div>
     <div class="card">

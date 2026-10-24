@@ -100,6 +100,16 @@ function kkSave(){
     keluar: jenis === 'keluar' ? jml : 0,
   };
   kkOf(ent).mutasi.unshift(rec);
+     // POST JURNAL OTOMATIS (KAS KECIL)
+  const jLines = [];
+  if (jenis === 'masuk') {
+    jLines.push({ akun: '1002', debit: jml, kredit: 0 }); // Kas Kecil
+    jLines.push({ akun: '1001', debit: 0, kredit: jml }); // Kas Utama
+  } else {
+    jLines.push({ akun: '6001', debit: jml, kredit: 0 }); // Beban
+    jLines.push({ akun: '1002', debit: 0, kredit: jml }); // Kas Kecil
+  }
+  postJournal(tgl, 'KK-'+ent, ket || 'Kas Kecil', ent, jLines);
   persist();
   queue({ type:'kk', action:'upsert', record:rec });
 

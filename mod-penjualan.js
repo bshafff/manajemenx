@@ -127,6 +127,17 @@ function pjSave(){
 
   const rec = { id: uid(), no, tgl, entity, pelanggan: pel ? pel.nama : '', pelangganId: pel ? pel.id : '', channel, status, items, ppnPersen, ket, noSuratJalan, nsfp, dibayar: status === 'lunas' ? total : 0 };
   S.penjualan.unshift(rec);
+     // POST JURNAL OTOMATIS (PENJUALAN)
+  const jLines = [];
+  const accPiutang = p.status === 'lunas' ? '1001' : '1201'; // Kas atau Piutang
+  jLines.push({ akun: accPiutang, debit: total, kredit: 0 });
+  jLines.push({ akun: '4001', debit: 0, kredit: total }); // Pendapatan
+  const hppTotal = sum(items, i => i.qty * (i.hpp || 0));
+  if (hppTotal > 0) {
+    jLines.push({ akun: '5001', debit: hppTotal, kredit: 0 }); // HPP
+    jLines.push({ akun: '1301', debit: 0, kredit: hppTotal }); // Persediaan
+  }
+  postJournal(tgl, no, `Jual ke ${pel ? pel.nama : 'Umum'}`, entity, jLines);
   recalcStok();
   persist(); queue({ type:'penjualan', action:'upsert', record:rec });
 

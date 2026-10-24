@@ -16,17 +16,22 @@ const SHELL = [
   './responsive.css', './ui.js', './chart.umd.js',
   './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png', 
   
-  // ── FASE 1: Akuntansi ──
+   // ── FASE 1: Akuntansi ──
   './coa.html', './jurnal-umum.html', './laporan-akuntansi.html', './laporan-keuangan.html',
   './mod-coa.js', './mod-jurnal-umum.js', './mod-laporan-akuntansi.js', './mod-laporan-keuangan.js', 
   
   // ── FASE 2: Persediaan ──
   './penyesuaian.html', './mod-penyesuaian.js', 
 
-  // ── FASE 3: Alur Dokumen (PO, GRN, Retur) ──
+  // ── FASE 3 & 4: Alur Dokumen (PO, GRN, Retur) & Tutup Buku ──
   './pesanan-pembelian.html', './mod-pesanan-pembelian.js',
   './penerimaan-barang.html', './mod-penerimaan-barang.js',
-  './retur.html', './mod-retur.js', './tutup-buku.html', './mod-tutup-buku.js',
+  './retur.html', './mod-retur.js', 
+  './tutup-buku.html', './mod-tutup-buku.js',
+
+  // ── FASE 5: Aset Tetap & Migrasi ──
+  './aset.html', './mod-aset.js',
+  './migrasi.html', './mod-migrasi.js',
 ];
 
 self.addEventListener('install', e => {

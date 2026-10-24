@@ -149,6 +149,11 @@ function saveBayar(){
 
   /* Kas keluar */
   addKas(entity, -jml);
+     // POST JURNAL OTOMATIS (PEMBAYARAN)
+  const jLines = [];
+  jLines.push({ akun: jenis === 'supplier' ? '2001' : '6001', debit: jml, kredit: 0 }); // Hutang atau Beban
+  jLines.push({ akun: '1001', debit: 0, kredit: jml }); // Kas Keluar
+  postJournal(tgl, no, ket || 'Pembayaran', entity, jLines);
 
   const rec = {
     id: uid(),

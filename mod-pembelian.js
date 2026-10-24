@@ -75,7 +75,7 @@ function pbSave(){
   const ppnPersen = +document.getElementById('pb-ppn').value || 0;
   const entity = document.getElementById('pb-ent').value;
   const items = pbReadItems();
-
+if (isPeriodLocked(tgl)) return toast('Periode ditutup', 'error');
   if (!items.length) return toast('Minimal 1 barang', 'error');
   if (S.pembelian.find(x => x.no === no)) return toast('No faktur sudah dipakai', 'error');
 
@@ -121,6 +121,7 @@ function pbView(id){
 
 function pbDel(id){
   const p = S.pembelian.find(x => x.id === id); if (!p) return;
+  if (isPeriodLocked(p.tgl)) return toast('Periode ditutup', 'error');
   if (!confirm('Hapus faktur?')) return;
   S.pembelian = S.pembelian.filter(x => x.id !== id);
   persist(); queue({ type:'pembelian', action:'delete', id }); renderPembelian(); refreshDashboard(); toast('Dihapus');

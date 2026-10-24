@@ -63,7 +63,7 @@ function savePenyesuaian(){
   const stokFisik = +document.getElementById('pn-fisik').value || 0;
   const ket = document.getElementById('pn-ket').value.trim() || 'Stok Opname';
   const selisih = stokFisik - stokSistem;
-  
+  if (isPeriodLocked(tgl)) return toast('Periode ditutup', 'error');
   if (selisih === 0) return toast('Stok fisik sama dengan sistem, tidak perlu penyesuaian', 'error');
 
   const entity = b.lini === 'HQ' ? 'HQ' : b.lini;
@@ -95,6 +95,7 @@ function savePenyesuaian(){
 
 function delPenyesuaian(id){
   const p = S.penyesuaian.find(x => x.id === id); if (!p) return;
+  if (isPeriodLocked(p.tgl)) return toast('Periode ditutup', 'error');
   if (!confirm('Hapus riwayat ini? Stok akan dikembalikan ke kondisi semula.')) return;
   S.penyesuaian = S.penyesuaian.filter(x => x.id !== id);
   recalcStok();

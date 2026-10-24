@@ -6,7 +6,7 @@
 const MOD_LIST = [
   ['dashboard','📊 Ringkasan'], ['eksekutif','🧭 Ringkasan Eksekutif'], ['coa','🏦 Akun Perkiraan'], ['jurnalUmum','📒 Jurnal Umum'], ['laporanAkuntansi','⚖️ Neraca Saldo'],
   ['barang','📦 Barang'], ['supplier','🚚 Supplier'], ['pelanggan','👥 Pelanggan'], ['pembelian','🛒 Pembelian'], ['penjualan','🧾 Penjualan'],
-  ['penerimaan','💰 Penerimaan'], ['pembayaran','💸 Pembayaran'], ['kaskecil','👛 Kas Kecil'], ['jurnal','📚 Jurnal Buku Besar'], ['produksi','🏭 Produksi'], ['panen','🍓 Panen'], ['kandang','🐔 Kandang'], ['laporanKeuangan','📈 Laba Rugi & Neraca'], ['penyesuaian','⚙️ Stok Opname'], ['pesananPembelian','📝 Pesanan Beli'], ['penerimaanBarang','📥 Terima Barang'], ['retur','↩️ Retur']
+  ['penerimaan','💰 Penerimaan'], ['pembayaran','💸 Pembayaran'], ['kaskecil','👛 Kas Kecil'], ['jurnal','📚 Jurnal Buku Besar'], ['produksi','🏭 Produksi'], ['panen','🍓 Panen'], ['kandang','🐔 Kandang'], ['laporanKeuangan','📈 Laba Rugi & Neraca'], ['penyesuaian','⚙️ Stok Opname'], ['pesananPembelian','📝 Pesanan Beli'], ['penerimaanBarang','📥 Terima Barang'], ['retur','↩️ Retur'], 
 ];
 
 const ROLES = ['owner','manajer','kasir','gudang','produksi'];

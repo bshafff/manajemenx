@@ -62,7 +62,7 @@ function akModal(id){
     () => akSave(id), 'Simpan');
 }
 
-function akSave(id){
+async function akSave(id){
   const nama = val('ak-nama'), pin = val('ak-pin'), role = val('ak-role'), entity = val('ak-ent');
   if (!nama) return toast('Nama wajib diisi', 'error');
   if (!/^\d{4,6}$/.test(pin)) return toast('PIN harus 4–6 angka', 'error');
@@ -70,7 +70,6 @@ function akSave(id){
   const sel = MOD_LIST.map(m => m[0]).filter(k => document.getElementById('ak-m-' + k).checked);
   const def = roleDefault(role);
   
-  // Jika centang manual sama persis dengan default role, jadikan null (menghemat memori & sync)
   const sama = sel.length === def.length && sel.every(k => def.includes(k));
   const akses = role === 'owner' || sama ? null : sel;
   
@@ -78,11 +77,17 @@ function akSave(id){
   if (u){
     if (u.role === 'owner' && role !== 'owner' && S.users.filter(x => x.role === 'owner').length < 2)
       return toast('Harus ada minimal satu owner', 'error');
-    Object.assign(u, { nama, pin, role, entity, akses });
+    
+    // Hash PIN baru
+    const hashed = await hashPin(pin);
+    Object.assign(u, { nama, pin: hashed, role, entity, akses });
   } else {
-    u = { id: uid(), nama, pin, role, entity, akses };
+    // Hash PIN user baru
+    const hashed = await hashPin(pin);
+    u = { id: uid(), nama, pin: hashed, role, entity, akses };
     S.users.push(u);
   }
+  
   persist(); 
   if (typeof farmQueue === 'function') farmQueue('users', 'upsert', u);
   

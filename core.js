@@ -212,19 +212,54 @@ const hppSell = p => sum(p.items || [], i => i.qty * (i.hpp || 0));
 function piutangEnt(kode){ return sum(S.penjualan.filter(p => (kode === 'ALL' || p.entity === kode) && p.status !== 'lunas'), p => totSell(p) - (p.dibayar || 0)); }
 function hutangEnt(kode){ return sum(S.pembelian.filter(p => (kode === 'ALL' || p.entity === kode) && p.status !== 'lunas'), p => totBuy(p) - (p.dibayar || 0)); }
 
+/* ─── FUNGSI AKUNTANSI (COA & JURNAL) ─── */
+function getAccountBalance(accId, ent = 'ALL') {
+  let bal = 0;
+  S.jurnalUmum.forEach(j => {
+    if (ent !== 'ALL' && j.entity !== ent) return;
+    j.lines.forEach(l => {
+      if (l.akun === accId) bal += (l.debit || 0) - (l.kredit || 0);
+    });
+  });
+  return bal;
+}
+
 function labaRugiEnt(kode){
-  const filt = x => kode === 'ALL' || x.entity === kode;
-  const penj = S.penjualan.filter(filt);
-  let kkJ = kode === 'ALL' ? Object.values(S.kasKecil.perEntity || {}).flatMap(x => x.mutasi || []) : (S.kasKecil.perEntity?.[kode]?.mutasi) || [];
-  const pend = sum(penj, totSell); const hpp = sum(penj, hppSell); const beban = sum(kkJ.filter(m => m.keluar), m => m.keluar);
-  const kotor = pend - hpp; return { pend, hpp, kotor, beban, bersih: kotor - beban };
+  let pendapatan = 0, hpp = 0, beban = 0;
+  S.accounts.forEach(a => {
+    const bal = getAccountBalance(a.id, kode);
+    if (a.tipe === 'Pendapatan') {
+      pendapatan += (bal < 0 ? Math.abs(bal) : 0); // Pendapatan normalnya Kredit
+    } else if (a.tipe === 'Beban') {
+      if (a.id === '5001') hpp += bal;
+      else beban += bal;
+    }
+  });
+  const kotor = pendapatan - hpp;
+  const bersih = kotor - beban;
+  return { pend: pendapatan, hpp, kotor, beban, bersih };
 }
 
 function neracaEnt(kode){
-  const kas = kode === 'ALL' ? totalKas() : kasOf(kode); const kk = kode === 'ALL' ? totalKK() : kkSaldo(kode);
-  const piu = piutangEnt(kode); const hut = hutangEnt(kode);
-  const stok = sum(S.barang.filter(b => kode === 'ALL' || b.lini === kode), b => b.stok * (b.hargaBeli || 0));
-  const aset = kas + kk + piu + stok; return { kas, kk, piu, stok, aset, liab: hut, ekuitas: aset - hut };
+  let aset = 0, liab = 0, ekuitas = 0;
+  let kas = 0, kk = 0, piu = 0, stok = 0;
+
+  S.accounts.forEach(a => {
+    const bal = getAccountBalance(a.id, kode);
+    if (a.tipe === 'Aset') aset += bal;
+    else if (a.tipe === 'Kewajiban') liab += Math.abs(bal);
+    else if (a.tipe === 'Ekuitas') ekuitas += Math.abs(bal);
+
+    if (a.id === '1001') kas = bal;
+    else if (a.id === '1002') kk = bal;
+    else if (a.id === '1201') piu = bal;
+    else if (a.id === '1301') stok = bal;
+  });
+
+  const lr = labaRugiEnt(kode);
+  ekuitas += lr.bersih; // Laba berjalan masuk ke Ekuitas
+
+  return { kas, kk, piu, stok, aset, liab, ekuitas };
 }
 
 function stokMasuk(id, qty, harga){ const b = brg(id); if (!b) return; const nl = b.stok * (b.hargaBeli || 0); b.stok += qty; if (b.stok > 0 && harga > 0) b.hargaBeli = (nl + qty * harga) / b.stok; }
@@ -242,9 +277,6 @@ function recalcStok(){
   });
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   AKUNTANSI: JURNAL & BUKU BESAR
-   ═══════════════════════════════════════════════════════════════ */
 function postJournal(tgl, ref, ket, ent, lines) {
   const totalDebit = sum(lines.filter(l => l.debit), l => l.debit);
   const totalKredit = sum(lines.filter(l => l.kredit), l => l.kredit);
@@ -252,26 +284,12 @@ function postJournal(tgl, ref, ket, ent, lines) {
     console.error("Jurnal tidak seimbang!", { lines, totalDebit, totalKredit });
     return;
   }
-
   const rec = { id: uid(), tgl, ref, ket, entity: ent, lines, updatedAt: new Date().toISOString() };
   S.jurnalUmum.unshift(rec);
   queue({ type: 'jurnalUmum', action: 'upsert', record: rec });
 }
 
-function getAccountBalance(accId, ent = 'ALL') {
-  let bal = 0;
-  S.jurnalUmum.forEach(j => {
-    if (ent !== 'ALL' && j.entity !== ent) return;
-    j.lines.forEach(l => {
-      if (l.akun === accId) bal += (l.debit || 0) - (l.kredit || 0);
-    });
-  });
-  return bal;
-}
-
 function jurnal(){
-  // Fungsi ini sekarang membaca dari S.jurnalUmum (bukan generate ulang)
-  // Digunakan untuk tampilan list di modul Jurnal.
   const J = [];
   S.jurnalUmum.forEach(j => {
     j.lines.forEach(l => {
@@ -454,8 +472,8 @@ function moreItems(){
   const base = activeDiv === 'HQ' ? [
     { id:'eksekutif', icon:'🧭', label:'Ringkasan Eksekutif' }, { id:'coa', icon:'🏦', label:'Akun Perkiraan' },
     { id:'jurnalUmum', icon:'📒', label:'Jurnal Umum' }, { id:'laporanAkuntansi', icon:'⚖️', label:'Neraca Saldo' },
-    { id:'jurnal', icon:'📚', label:'Jurnal Global' }, { id:'supplier', icon:'🏭', label:'Supplier' }, { id:'pelanggan', icon:'👥', label:'Pelanggan' },
-    { id:'akun', icon:'👤', label:'Kelola Akun' },
+    { id:'laporanKeuangan', icon:'📈', label:'Laba Rugi & Neraca' }, { id:'jurnal', icon:'📚', label:'Buku Besar' },
+    { id:'supplier', icon:'🏭', label:'Supplier' }, { id:'pelanggan', icon:'👥', label:'Pelanggan' }, { id:'akun', icon:'👤', label:'Kelola Akun' },
   ] : [ { id:'pembayaran', icon:'💸', label:'Pembayaran' }, { id:'kaskecil', icon:'👛', label:'Kas Kecil' }, { id:'jurnal', icon:'📚', label:'Jurnal Divisi' } ];
   return base.filter(i => (i.id !== 'akun' || isOwner) && canAccess(i.id));
 }
@@ -492,7 +510,8 @@ function renderSidebar(){
       <div class="sb-item ${view==='coa'?'on':''}" onclick="openModule('coa')"><span class="sb-ic">🏦</span><span class="sb-lbl">Akun Perkiraan</span></div>
       <div class="sb-item ${view==='jurnalUmum'?'on':''}" onclick="openModule('jurnalUmum')"><span class="sb-ic">📒</span><span class="sb-lbl">Jurnal Umum</span></div>
       <div class="sb-item ${view==='laporanAkuntansi'?'on':''}" onclick="openModule('laporanAkuntansi')"><span class="sb-ic">⚖️</span><span class="sb-lbl">Neraca Saldo</span></div>
-      <div class="sb-item ${view==='jurnal'?'on':''}" onclick="openModule('jurnal')"><span class="sb-ic">📚</span><span class="sb-lbl">Jurnal Global</span></div>
+      <div class="sb-item ${view==='laporanKeuangan'?'on':''}" onclick="openModule('laporanKeuangan')"><span class="sb-ic">📈</span><span class="sb-lbl">Laba Rugi & Neraca</span></div>
+      <div class="sb-item ${view==='jurnal'?'on':''}" onclick="openModule('jurnal')"><span class="sb-ic">📚</span><span class="sb-lbl">Buku Besar</span></div>
       <div class="sb-section">Master Data</div>
       <div class="sb-item ${view==='barang'?'on':''}" onclick="openModule('barang')"><span class="sb-ic">📦</span><span class="sb-lbl">Barang</span></div>
       <div class="sb-item ${view==='supplier'?'on':''}" onclick="openModule('supplier')"><span class="sb-ic">🏭</span><span class="sb-lbl">Supplier</span></div>
@@ -537,12 +556,13 @@ function refreshView(id){
     panen: () => typeof renderPanen === 'function' && renderPanen(), kandang: () => typeof renderKandang === 'function' && renderKandang(),
     coa: () => typeof renderCOA === 'function' && renderCOA(), jurnalUmum: () => typeof renderJurnalUmum === 'function' && renderJurnalUmum(),
     laporanAkuntansi: () => typeof renderLaporanAkuntansi === 'function' && renderLaporanAkuntansi(),
+    laporanKeuangan: () => typeof renderLaporanKeuangan === 'function' && renderLaporanKeuangan(),
   };
   if (map[id]) map[id]();
 }
 
 function refreshAll(){
-  Object.keys({ home:1, dashboard:1, barang:1, supplier:1, pelanggan:1, pembelian:1, penjualan:1, pembayaran:1, penerimaan:1, kaskecil:1, jurnal:1, akun:1, eksekutif:1, produksi:1, panen:1, kandang:1, coa:1, jurnalUmum:1, laporanAkuntansi:1 }).forEach(refreshView);
+  Object.keys({ home:1, dashboard:1, barang:1, supplier:1, pelanggan:1, pembelian:1, penjualan:1, pembayaran:1, penerimaan:1, kaskecil:1, jurnal:1, akun:1, eksekutif:1, produksi:1, panen:1, kandang:1, coa:1, jurnalUmum:1, laporanAkuntansi:1, laporanKeuangan:1 }).forEach(refreshView);
   updateStatus(); renderSidebar();
 }
 

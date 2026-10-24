@@ -110,6 +110,7 @@ function pjSave(){
   const ket = document.getElementById('pj-ket').value.trim();
   const items = pjReadItems();
 
+   if (isPeriodLocked(tgl)) return toast('Periode ditutup', 'error');
   if (!items.length) return toast('Minimal 1 barang', 'error');
   if (S.penjualan.find(x => x.no === no)) return toast('No faktur sudah dipakai', 'error');
 
@@ -179,6 +180,7 @@ function pjView(id){
 
 function pjDel(id){
   const p = S.penjualan.find(x => x.id === id); if (!p) return;
+   if (isPeriodLocked(p.tgl)) return toast('Periode ditutup', 'error');
   if (!confirm('Hapus faktur? Stok dikembalikan.')) return;
   p.items.forEach(i => { const b = brg(i.barangId); if (b) b.stok += i.qty; });
   const dpp = sum(p.items, i => i.qty*i.harga); const ppnVal = p.ppnPersen ? Math.round(dpp * p.ppnPersen / 100) : 0;

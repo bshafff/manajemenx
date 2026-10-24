@@ -142,6 +142,7 @@ function saveTerima(){
   const buktiUrl = document.getElementById('pn-bukti').value.trim();
   const bf = document.getElementById('pn-file')?.files?.[0];
 
+   if (isPeriodLocked(tgl)) return toast('Periode ditutup', 'error');
   if (jml <= 0) return toast('Total diterima tidak valid', 'error');
   if (jenis === 'pelunasan' && !dari)
     return toast('Pilih pelanggan dulu', 'error');

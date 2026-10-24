@@ -4,20 +4,9 @@
    ═══════════════════════════════════════════════════════════════ */
 
 const MOD_LIST = [
-  ['dashboard','📊 Ringkasan'], 
-  ['eksekutif','🧭 Ringkasan Eksekutif'], 
-  ['barang','📦 Barang'], 
-  ['supplier','🚚 Supplier'],
-  ['pelanggan','👥 Pelanggan'], 
-  ['pembelian','🛒 Pembelian'], 
-  ['penjualan','🧾 Penjualan'],
-  ['penerimaan','💰 Penerimaan'], 
-  ['pembayaran','💸 Pembayaran'], 
-  ['kaskecil','👛 Kas Kecil'],
-  ['jurnal','📒 Jurnal'], 
-  ['produksi','🏭 Produksi'], 
-  ['panen','🍓 Panen'], 
-  ['kandang','🐔 Kandang'],
+  ['dashboard','📊 Ringkasan'], ['eksekutif','🧭 Ringkasan Eksekutif'], ['coa','🏦 Akun Perkiraan'], ['jurnalUmum','📒 Jurnal Umum'], ['laporanAkuntansi','⚖️ Neraca Saldo'],
+  ['barang','📦 Barang'], ['supplier','🚚 Supplier'], ['pelanggan','👥 Pelanggan'], ['pembelian','🛒 Pembelian'], ['penjualan','🧾 Penjualan'],
+  ['penerimaan','💰 Penerimaan'], ['pembayaran','💸 Pembayaran'], ['kaskecil','👛 Kas Kecil'], ['jurnal','📚 Jurnal Buku Besar'], ['produksi','🏭 Produksi'], ['panen','🍓 Panen'], ['kandang','🐔 Kandang'],
 ];
 
 const ROLES = ['owner','manajer','kasir','gudang','produksi'];

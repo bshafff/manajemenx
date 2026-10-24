@@ -1,4 +1,4 @@
-const CACHE = 'imb-v26';
+const CACHE = 'imb-v27';
 const SHELL = [
   './', './index.html', './style.css',
   './core.js', './auth.js', './import.js',
@@ -14,7 +14,8 @@ const SHELL = [
   './produksi.html', './panen.html', './kandang.html', './akun.html', './eksekutif.html',
   './manifest.json', './icon.svg', './version.json',
   './responsive.css', './ui.js', './chart.umd.js',
-  './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png',
+  './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png', './coa.html', './jurnal-umum.html', './laporan-akuntansi.html',
+  './mod-coa.js', './mod-jurnal-umum.js', './mod-laporan-akuntansi.js',
 ];
 
 self.addEventListener('install', e => {

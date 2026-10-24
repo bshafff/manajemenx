@@ -191,6 +191,7 @@ function saveBayar(){
 
 function delBayar(id){
   const p = (S.pembayaran || []).find(x => x.id === id);
+   if (isPeriodLocked(p.tgl)) return toast('Periode ditutup', 'error');
   if (!p || !confirm('Batalkan pembayaran ini?')) return;
 
   /* Rollback kas */

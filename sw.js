@@ -1,4 +1,4 @@
-const CACHE = 'imb-v34';
+const CACHE = 'imb-v35';
 const SHELL = [
   './', './index.html', './style.css',
   './core.js', './auth.js', './import.js',
@@ -26,7 +26,7 @@ const SHELL = [
   // ── FASE 3: Alur Dokumen (PO, GRN, Retur) ──
   './pesanan-pembelian.html', './mod-pesanan-pembelian.js',
   './penerimaan-barang.html', './mod-penerimaan-barang.js',
-  './retur.html', './mod-retur.js',
+  './retur.html', './mod-retur.js', './tutup-buku.html', './mod-tutup-buku.js',
 ];
 
 self.addEventListener('install', e => {

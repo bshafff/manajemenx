@@ -118,6 +118,12 @@ function pbSave(){
 
   const rec = { id: uid(), no, tgl, entity, supplier: sup ? sup.nama : '', supplierId: sup ? sup.id : '', status, items, ppnPersen, ket, noFakturSup, nsfp, dibayar: status === 'lunas' ? total : 0 };
   S.pembelian.unshift(rec);
+     // POST JURNAL OTOMATIS (PEMBELIAN)
+  const jLines = [];
+  jLines.push({ akun: '1301', debit: total, kredit: 0 }); // Persediaan
+  const accHutang = status === 'lunas' ? '1001' : '2001'; // Kas atau Hutang
+  jLines.push({ akun: accHutang, debit: 0, kredit: total });
+  postJournal(tgl, no, `Beli dari ${sup ? sup.nama : 'Supplier'}`, entity, jLines);
   recalcStok();
   persist(); queue({ type:'pembelian', action:'upsert', record:rec });
 

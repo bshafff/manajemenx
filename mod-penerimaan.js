@@ -291,6 +291,7 @@ function viewKwitansi(id){
 /* ─── Hapus ─── */
 function delTerima(id){
   const p = S.penerimaan.find(x => x.id === id);
+   if (isPeriodLocked(p.tgl)) return toast('Periode ditutup', 'error');
   if (!p || !confirm('Batalkan penerimaan ini?')) return;
   addKas(p.entity, -p.jumlah);
   (p.fakturLinks || []).forEach(fl => {

@@ -6,7 +6,7 @@ const VIEW_FILES = {
   'pelanggan': 'pelanggan.html', 'pembelian': 'pembelian.html', 'penjualan': 'penjualan.html', 'pembayaran': 'pembayaran.html',
   'penerimaan': 'penerimaan.html', 'kaskecil': 'kaskecil.html', 'jurnal': 'jurnal.html', 'produksi': 'produksi.html',
   'panen': 'panen.html', 'kandang': 'kandang.html', 'akun': 'akun.html', 'eksekutif': 'eksekutif.html',
-  'coa': 'coa.html', 'jurnalUmum': 'jurnal-umum.html', 'laporanAkuntansi': 'laporan-akuntansi.html'
+  'coa': 'coa.html', 'jurnalUmum': 'jurnal-umum.html', 'laporanAkuntansi': 'laporan-akuntansi.html', 'laporanKeuangan': 'laporan-keuangan.html',
 };
 
 async function loadAllViews(){

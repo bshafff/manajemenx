@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    KONFIGURASI
    ═══════════════════════════════════════════════════════════════ */
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbx8EMwUqz4N3FqHTcTJgXHheDmyzMj2US6UtqyyWnF_BHrLK-QwHOZcTA4KYntbLDE/exec';
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbyWuHXzobO0zcsH0cFkWMRmwamOaF1vw-BsZR6_qRid_-wU9ErEMI_uYUkawEWpNpGB/exec';
 const API_KEY = 'ERP_2026';
 const PPN_DEFAULT = 11;
 

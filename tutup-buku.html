@@ -1,0 +1,27 @@
+<div id="v-tutupBuku" class="view">
+  <div class="card">
+    <div class="card-header-flex">
+      <h3>🔒 Tutup Buku (Month-End Closing)</h3>
+    </div>
+    <div class="hint" style="margin-bottom:12px">
+      Mengunci periode akan mencegah siapa pun mengedit atau menghapus transaksi pada bulan tersebut. Pastikan semua laporan sudah benar sebelum mengunci.
+    </div>
+    
+    <div class="form-grid" style="grid-template-columns:1fr auto; align-items:end;">
+      <div>
+        <label>Pilih Bulan yang Akan Dikunci</label>
+        <input id="tb-periode" type="month" value="">
+      </div>
+      <div>
+        <button class="btn btn-p" onclick="kunciPeriode()">🔒 Kunci Periode</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header-flex">
+      <h3>Daftar Bulan Terkunci</h3>
+    </div>
+    <div id="tb-list"></div>
+  </div>
+</div>

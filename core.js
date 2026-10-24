@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    KONFIGURASI
    ═══════════════════════════════════════════════════════════════ */
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbzR5p5PzBOj7LtKNl8kixj58RslWYy9ssd2hw_IEPnJ7nVm5xNqHZTRR2NCqawPtM88/exec';
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwHzvNoZcxGHl84H4lJk8lhDMZy85_Pq58Ea-OFnqjAnQBaguSz7nfNiz2K767Gg1S_/exec';
 const API_KEY = 'ERP_2026';
 const PPN_DEFAULT = 11;
 
@@ -88,10 +88,12 @@ function seedAccounts(){
     { id: '2001', nama: 'Hutang Usaha', tipe: 'Kewajiban', saldoNormal: 'Kredit' },
     { id: '3001', nama: 'Modal Pemilik', tipe: 'Ekuitas', saldoNormal: 'Kredit' },
     { id: '4001', nama: 'Pendapatan Penjualan', tipe: 'Pendapatan', saldoNormal: 'Kredit' },
+    { id: '4002', nama: 'Pendapatan Lain-lain', tipe: 'Pendapatan', saldoNormal: 'Kredit' },
     { id: '5001', nama: 'Harga Pokok Penjualan (HPP)', tipe: 'Beban', saldoNormal: 'Debit' },
     { id: '6001', nama: 'Beban Operasional', tipe: 'Beban', saldoNormal: 'Debit' },
     { id: '6002', nama: 'Beban Gaji', tipe: 'Beban', saldoNormal: 'Debit' },
-    { id: '6003', nama: 'Beban Listrik & Air', tipe: 'Beban', saldoNormal: 'Debit' }
+    { id: '6003', nama: 'Beban Listrik & Air', tipe: 'Beban', saldoNormal: 'Debit' },
+    { id: '6004', nama: 'Beban Selisih Persediaan', tipe: 'Beban', saldoNormal: 'Debit' }
   ];
 }
 
@@ -101,7 +103,7 @@ function seed(){
     kasKecil: { perEntity: { HQ:{saldo:0,mutasi:[]}, SB:{saldo:0,mutasi:[]}, DR:{saldo:0,mutasi:[]}, AY:{saldo:0,mutasi:[]}, PK:{saldo:0,mutasi:[]} } },
     accounts: seedAccounts(),
     barang: [], supplier: [], pelanggan: [], pembelian: [], penjualan: [], pembayaran: [], penerimaan: [],
-    transfer: [], permintaan: [], pesanan: [], jurnalUmum: [], produksi: [], panen: [], kandang: [], kandangLog: [],
+    transfer: [], permintaan: [], pesanan: [], penyesuaian: [], jurnalUmum: [], produksi: [], panen: [], kandang: [], kandangLog: [],
     users: [
       { id:'u-owner',  nama:'Owner',      role:'owner',   entity:'HQ', pin:'1234' },
       { id:'u-man-sb', nama:'Manajer SB', role:'manajer', entity:'SB', pin:'1111' },
@@ -132,9 +134,18 @@ function migrate(){
 
   if (!Array.isArray(S.accounts) || !S.accounts.length) {
     S.accounts = seedAccounts(); changed = true;
+  } else {
+    // Pastikan akun baru ada (jika migrasi dari versi sebelumnya)
+    ['4002', '6004'].forEach(id => {
+      if (!S.accounts.find(a => a.id === id)) {
+        const newAcc = seedAccounts().find(a => a.id === id);
+        if (newAcc) S.accounts.push(newAcc);
+        changed = true;
+      }
+    });
   }
 
-  ['barang','supplier','pelanggan','pembelian','penjualan','pembayaran','penerimaan','transfer','permintaan','pesanan','jurnalUmum', 'produksi', 'panen', 'kandang', 'kandangLog'].forEach(k => {
+  ['barang','supplier','pelanggan','pembelian','penjualan','pembayaran','penerimaan','transfer','permintaan','pesanan','penyesuaian','jurnalUmum', 'produksi', 'panen', 'kandang', 'kandangLog'].forEach(k => {
     if (!Array.isArray(S[k])){ S[k] = []; changed = true; }
   });
 
@@ -142,7 +153,7 @@ function migrate(){
     S.users = [{ id:'u-owner', nama:'Owner', role:'owner', entity:'HQ', pin:'1234' }]; changed = true;
   }
 
-  ['pembelian','penjualan','pembayaran','penerimaan','permintaan','pesanan','transfer'].forEach(key => {
+  ['pembelian','penjualan','pembayaran','penerimaan','permintaan','pesanan','transfer', 'penyesuaian'].forEach(key => {
     (S[key] || []).forEach(r => { if (!r.entity){ r.entity = 'HQ'; changed = true; } });
   });
 
@@ -212,14 +223,11 @@ const hppSell = p => sum(p.items || [], i => i.qty * (i.hpp || 0));
 function piutangEnt(kode){ return sum(S.penjualan.filter(p => (kode === 'ALL' || p.entity === kode) && p.status !== 'lunas'), p => totSell(p) - (p.dibayar || 0)); }
 function hutangEnt(kode){ return sum(S.pembelian.filter(p => (kode === 'ALL' || p.entity === kode) && p.status !== 'lunas'), p => totBuy(p) - (p.dibayar || 0)); }
 
-/* ─── FUNGSI AKUNTANSI (COA & JURNAL) ─── */
 function getAccountBalance(accId, ent = 'ALL') {
   let bal = 0;
   S.jurnalUmum.forEach(j => {
     if (ent !== 'ALL' && j.entity !== ent) return;
-    j.lines.forEach(l => {
-      if (l.akun === accId) bal += (l.debit || 0) - (l.kredit || 0);
-    });
+    j.lines.forEach(l => { if (l.akun === accId) bal += (l.debit || 0) - (l.kredit || 0); });
   });
   return bal;
 }
@@ -228,37 +236,22 @@ function labaRugiEnt(kode){
   let pendapatan = 0, hpp = 0, beban = 0;
   S.accounts.forEach(a => {
     const bal = getAccountBalance(a.id, kode);
-    if (a.tipe === 'Pendapatan') {
-      pendapatan += (bal < 0 ? Math.abs(bal) : 0); // Pendapatan normalnya Kredit
-    } else if (a.tipe === 'Beban') {
-      if (a.id === '5001') hpp += bal;
-      else beban += bal;
-    }
+    if (a.tipe === 'Pendapatan') pendapatan += (bal < 0 ? Math.abs(bal) : 0);
+    else if (a.tipe === 'Beban') { if (a.id === '5001') hpp += bal; else beban += bal; }
   });
   const kotor = pendapatan - hpp;
-  const bersih = kotor - beban;
-  return { pend: pendapatan, hpp, kotor, beban, bersih };
+  return { pend: pendapatan, hpp, kotor, beban, bersih: kotor - beban };
 }
 
 function neracaEnt(kode){
-  let aset = 0, liab = 0, ekuitas = 0;
-  let kas = 0, kk = 0, piu = 0, stok = 0;
-
+  let aset = 0, liab = 0, ekuitas = 0, kas = 0, kk = 0, piu = 0, stok = 0;
   S.accounts.forEach(a => {
     const bal = getAccountBalance(a.id, kode);
-    if (a.tipe === 'Aset') aset += bal;
-    else if (a.tipe === 'Kewajiban') liab += Math.abs(bal);
-    else if (a.tipe === 'Ekuitas') ekuitas += Math.abs(bal);
-
-    if (a.id === '1001') kas = bal;
-    else if (a.id === '1002') kk = bal;
-    else if (a.id === '1201') piu = bal;
-    else if (a.id === '1301') stok = bal;
+    if (a.tipe === 'Aset') aset += bal; else if (a.tipe === 'Kewajiban') liab += Math.abs(bal); else if (a.tipe === 'Ekuitas') ekuitas += Math.abs(bal);
+    if (a.id === '1001') kas = bal; else if (a.id === '1002') kk = bal; else if (a.id === '1201') piu = bal; else if (a.id === '1301') stok = bal;
   });
-
   const lr = labaRugiEnt(kode);
-  ekuitas += lr.bersih; // Laba berjalan masuk ke Ekuitas
-
+  ekuitas += lr.bersih;
   return { kas, kk, piu, stok, aset, liab, ekuitas };
 }
 
@@ -273,6 +266,7 @@ function recalcStok(){
     (S.penjualan || []).forEach(p => (p.items || []).forEach(i => { if (i.barangId === b.id) mutasi -= i.qty; }));
     (S.produksi || []).forEach(w => { (w.bahan || []).forEach(i => { if (i.barangId === b.id) mutasi -= i.qty; }); (w.output || []).forEach(i => { if (i.barangId === b.id) mutasi += i.qty; }); });
     (S.panen || []).forEach(h => (h.items || []).forEach(i => { if (i.barangId === b.id) mutasi += i.qty; }));
+    (S.penyesuaian || []).forEach(p => { if (p.barangId === b.id) mutasi += p.selisih; }); // Mutasi dari Opname
     b.stok = (b.stokAwal || 0) + mutasi;
   });
 }
@@ -280,10 +274,7 @@ function recalcStok(){
 function postJournal(tgl, ref, ket, ent, lines) {
   const totalDebit = sum(lines.filter(l => l.debit), l => l.debit);
   const totalKredit = sum(lines.filter(l => l.kredit), l => l.kredit);
-  if (Math.abs(totalDebit - totalKredit) > 0.01) {
-    console.error("Jurnal tidak seimbang!", { lines, totalDebit, totalKredit });
-    return;
-  }
+  if (Math.abs(totalDebit - totalKredit) > 0.01) { console.error("Jurnal tidak seimbang!", { lines, totalDebit, totalKredit }); return; }
   const rec = { id: uid(), tgl, ref, ket, entity: ent, lines, updatedAt: new Date().toISOString() };
   S.jurnalUmum.unshift(rec);
   queue({ type: 'jurnalUmum', action: 'upsert', record: rec });
@@ -291,11 +282,7 @@ function postJournal(tgl, ref, ket, ent, lines) {
 
 function jurnal(){
   const J = [];
-  S.jurnalUmum.forEach(j => {
-    j.lines.forEach(l => {
-      J.push({ tgl: j.tgl, ref: j.ref, ent: j.entity, ket: j.ket, akun: l.akun, d: l.debit ? l.debit : 0, k: l.kredit ? l.kredit : 0 });
-    });
-  });
+  S.jurnalUmum.forEach(j => { j.lines.forEach(l => { J.push({ tgl: j.tgl, ref: j.ref, ent: j.entity, ket: j.ket, akun: l.akun, d: l.debit ? l.debit : 0, k: l.kredit ? l.kredit : 0 }); }); });
   return J.sort((a,b) => (b.tgl||'').localeCompare(a.tgl||''));
 }
 
@@ -305,7 +292,6 @@ function jurnal(){
 let busy = false;
 function trackSync(){ localStorage.last_sync = Date.now(); }
 function lastSyncText(){ const t = localStorage.last_sync; if (!t) return '○ Belum tersinkron'; const d = new Date(+t); return '✓ Tersinkron — ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
-
 const opKey = o => (o.type || '') + '|' + (o.id || (o.record && o.record.id) || '');
 function moveToFailed(op, err){ const f = getFailed(); delete op._try; f.push({ op, err: String(err || ''), at: Date.now() }); localStorage[K_FAILED] = JSON.stringify(f); }
 function retryFailed(){ const f = getFailed(); if (!f.length){ toast('Tidak ada data gagal'); return; } const q = getQueue(); f.forEach(x => { x.op._try = 0; q.push(x.op); }); localStorage[K_FAILED] = '[]'; setQueue(q); flush(); }
@@ -422,8 +408,8 @@ async function bootstrapSync(){
       if (d.pembelian) S.pembelian = d.pembelian; if (d.penjualan) S.penjualan = d.penjualan; if (d.pembayaran) S.pembayaran = d.pembayaran;
       if (d.penerimaan) S.penerimaan = d.penerimaan; if (d.transfer) S.transfer = d.transfer; if (d.permintaan) S.permintaan = d.permintaan;
       if (d.pesanan) S.pesanan = d.pesanan; if (d.users?.length) S.users = d.users; if (d.accounts) S.accounts = d.accounts;
-      if (d.jurnalUmum) S.jurnalUmum = d.jurnalUmum; if (d.produksi) S.produksi = d.produksi; if (d.panen) S.panen = d.panen;
-      if (d.kandang) S.kandang = d.kandang; if (d.kandangLog) S.kandangLog = d.kandangLog;
+      if (d.penyesuaian) S.penyesuaian = d.penyesuaian; if (d.jurnalUmum) S.jurnalUmum = d.jurnalUmum;
+      if (d.produksi) S.produksi = d.produksi; if (d.panen) S.panen = d.panen; if (d.kandang) S.kandang = d.kandang; if (d.kandangLog) S.kandangLog = d.kandangLog;
       if (d.kk?.length){ const per = {}; ['HQ','SB','DR','AY','PK'].forEach(k => per[k] = { saldo: 0, mutasi: [] }); d.kk.forEach(m => { const e = m.entity || 'HQ'; if (!per[e]) per[e] = { saldo:0, mutasi:[] }; per[e].mutasi.push(m); per[e].saldo += (m.masuk||0) - (m.keluar||0); }); S.kasKecil.perEntity = per; }
     } else {
       const mergeData = (key, newItems) => {
@@ -435,7 +421,7 @@ async function bootstrapSync(){
       mergeData('barang', d.barang); mergeData('supplier', d.supplier); mergeData('pelanggan', d.pelanggan); mergeData('pembelian', d.pembelian);
       mergeData('penjualan', d.penjualan); mergeData('pembayaran', d.pembayaran); mergeData('penerimaan', d.penerimaan); mergeData('transfer', d.transfer);
       mergeData('permintaan', d.permintaan); mergeData('pesanan', d.pesanan); mergeData('users', d.users); mergeData('accounts', d.accounts);
-      mergeData('jurnalUmum', d.jurnalUmum); mergeData('produksi', d.produksi); mergeData('panen', d.panen); mergeData('kandang', d.kandang); mergeData('kandangLog', d.kandangLog);
+      mergeData('penyesuaian', d.penyesuaian); mergeData('jurnalUmum', d.jurnalUmum); mergeData('produksi', d.produksi); mergeData('panen', d.panen); mergeData('kandang', d.kandang); mergeData('kandangLog', d.kandangLog);
       if (d.kk && d.kk.length) { d.kk.forEach(m => { const ent = m.entity || 'HQ'; if (!S.kasKecil.perEntity[ent]) S.kasKecil.perEntity[ent] = {saldo:0, mutasi:[]}; const per = S.kasKecil.perEntity[ent]; const idx = per.mutasi.findIndex(x => x.id === m.id); if (idx >= 0){ const old = per.mutasi[idx]; if (old.updatedAt && m.updatedAt && old.updatedAt > m.updatedAt) return; per.mutasi[idx] = m; } else per.mutasi.unshift(m); }); Object.keys(S.kasKecil.perEntity).forEach(k => { const obj = S.kasKecil.perEntity[k]; obj.saldo = obj.mutasi.reduce((acc, curr) => acc + ((curr.masuk||0) - (curr.keluar||0)), 0); }); }
       if (json.deleted && json.deleted.length) { json.deleted.forEach(del => { if (S[del.type] && Array.isArray(S[del.type])) S[del.type] = S[del.type].filter(x => x.id !== del.id); if (del.type === 'kk') { Object.keys(S.kasKecil.perEntity).forEach(k => { const obj = S.kasKecil.perEntity[k]; obj.mutasi = obj.mutasi.filter(x => x.id !== del.id); obj.saldo = obj.mutasi.reduce((acc, curr) => acc + ((curr.masuk||0) - (curr.keluar||0)), 0); }); } }); }
     }
@@ -453,7 +439,7 @@ function pushAllToSheet(){
   (S.penerimaan||[]).forEach(p => push('penerimaan', p)); (S.transfer||[]).forEach(p => push('transfer', p)); (S.permintaan||[]).forEach(p => push('permintaan', p));
   (S.pesanan||[]).forEach(p => push('pesanan', p)); (S.produksi||[]).forEach(p => push('produksi', p)); (S.panen||[]).forEach(p => push('panen', p));
   (S.kandang||[]).forEach(p => push('kandang', p)); (S.kandangLog||[]).forEach(p => push('kandangLog', p)); (S.users||[]).forEach(u => push('users', u));
-  (S.accounts||[]).forEach(a => push('accounts', a)); (S.jurnalUmum||[]).forEach(j => push('jurnalUmum', j));
+  (S.accounts||[]).forEach(a => push('accounts', a)); (S.penyesuaian||[]).forEach(p => push('penyesuaian', p)); (S.jurnalUmum||[]).forEach(j => push('jurnalUmum', j));
   Object.values(S.kasKecil.perEntity||{}).forEach(o => (o.mutasi||[]).forEach(m => push('kk', m)));
   const keys = new Set(ops.map(opKey)); const q = getQueue().filter(o => !(o.action === 'upsert' && keys.has(opKey(o))));
   persist(); setQueue(q.concat(ops)); localStorage[K_BOOT] = '1'; if (ops.length) { toast('⬆ Mengirim ' + ops.length + ' data…'); flush(); }
@@ -512,8 +498,10 @@ function renderSidebar(){
       <div class="sb-item ${view==='laporanAkuntansi'?'on':''}" onclick="openModule('laporanAkuntansi')"><span class="sb-ic">⚖️</span><span class="sb-lbl">Neraca Saldo</span></div>
       <div class="sb-item ${view==='laporanKeuangan'?'on':''}" onclick="openModule('laporanKeuangan')"><span class="sb-ic">📈</span><span class="sb-lbl">Laba Rugi & Neraca</span></div>
       <div class="sb-item ${view==='jurnal'?'on':''}" onclick="openModule('jurnal')"><span class="sb-ic">📚</span><span class="sb-lbl">Buku Besar</span></div>
+      <div class="sb-section">Persediaan</div>
+      <div class="sb-item ${view==='barang'?'on':''}" onclick="openModule('barang')"><span class="sb-ic">📦</span><span class="sb-lbl">Barang & Jasa</span></div>
+      <div class="sb-item ${view==='penyesuaian'?'on':''}" onclick="openModule('penyesuaian')"><span class="sb-ic">⚙️</span><span class="sb-lbl">Stok Opname</span></div>
       <div class="sb-section">Master Data</div>
-      <div class="sb-item ${view==='barang'?'on':''}" onclick="openModule('barang')"><span class="sb-ic">📦</span><span class="sb-lbl">Barang</span></div>
       <div class="sb-item ${view==='supplier'?'on':''}" onclick="openModule('supplier')"><span class="sb-ic">🏭</span><span class="sb-lbl">Supplier</span></div>
       <div class="sb-item ${view==='pelanggan'?'on':''}" onclick="openModule('pelanggan')"><span class="sb-ic">👥</span><span class="sb-lbl">Pelanggan</span></div>
       <div class="sb-section">Divisi Usaha</div>
@@ -532,6 +520,9 @@ function renderSidebar(){
       <div class="sb-item ${view==='penerimaan'?'on':''}" onclick="openModule('penerimaan')"><span class="sb-ic">💰</span><span class="sb-lbl">Penerimaan</span></div>
       <div class="sb-item ${view==='pembayaran'?'on':''}" onclick="openModule('pembayaran')"><span class="sb-ic">💸</span><span class="sb-lbl">Pembayaran</span></div>
       <div class="sb-item ${view==='kaskecil'?'on':''}" onclick="openModule('kaskecil')"><span class="sb-ic">👛</span><span class="sb-lbl">Kas Kecil</span></div>
+      <div class="sb-section">Persediaan</div>
+      <div class="sb-item ${view==='barang'?'on':''}" onclick="openModule('barang')"><span class="sb-ic">📦</span><span class="sb-lbl">Barang</span></div>
+      <div class="sb-item ${view==='penyesuaian'?'on':''}" onclick="openModule('penyesuaian')"><span class="sb-ic">⚙️</span><span class="sb-lbl">Stok Opname</span></div>
       <div class="sb-section">Laporan</div>
       <div class="sb-item ${view==='jurnal'?'on':''}" onclick="openModule('jurnal')"><span class="sb-ic">📚</span><span class="sb-lbl">Jurnal Divisi</span></div>
     `;
@@ -557,12 +548,13 @@ function refreshView(id){
     coa: () => typeof renderCOA === 'function' && renderCOA(), jurnalUmum: () => typeof renderJurnalUmum === 'function' && renderJurnalUmum(),
     laporanAkuntansi: () => typeof renderLaporanAkuntansi === 'function' && renderLaporanAkuntansi(),
     laporanKeuangan: () => typeof renderLaporanKeuangan === 'function' && renderLaporanKeuangan(),
+    penyesuaian: () => typeof renderPenyesuaian === 'function' && renderPenyesuaian(),
   };
   if (map[id]) map[id]();
 }
 
 function refreshAll(){
-  Object.keys({ home:1, dashboard:1, barang:1, supplier:1, pelanggan:1, pembelian:1, penjualan:1, pembayaran:1, penerimaan:1, kaskecil:1, jurnal:1, akun:1, eksekutif:1, produksi:1, panen:1, kandang:1, coa:1, jurnalUmum:1, laporanAkuntansi:1, laporanKeuangan:1 }).forEach(refreshView);
+  Object.keys({ home:1, dashboard:1, barang:1, supplier:1, pelanggan:1, pembelian:1, penjualan:1, pembayaran:1, penerimaan:1, kaskecil:1, jurnal:1, akun:1, eksekutif:1, produksi:1, panen:1, kandang:1, coa:1, jurnalUmum:1, laporanAkuntansi:1, laporanKeuangan:1, penyesuaian:1 }).forEach(refreshView);
   updateStatus(); renderSidebar();
 }
 

@@ -15,8 +15,7 @@ function renderBarang(){
   const ent = activeEntity();
   const list = ent === 'ALL' ? S.barang : S.barang.filter(b => b.lini === ent);
 
-  el.innerHTML = `<div class="table-wrap">
-    <table>
+  el.innerHTML = `<div class="table-wrap"><table>
       <thead><tr>
         <th>ID</th><th>Nama</th><th>UoM</th><th>Lini</th>
         <th>Kategori</th><th class="num">Stok</th>
@@ -26,10 +25,11 @@ function renderBarang(){
       <tbody>${list.map(b => {
         const li = LINI[b.lini] || { ico:'•', nama:'?', warna:'#888' };
         const kritis = b.stok <= (b.minStok || 5);
+        const uom = b.satuanBesar && b.konversi ? `${b.satuan} (1 ${b.satuanBesar} = ${b.konversi} ${b.satuan})` : b.satuan;
         return `<tr>
           <td><b>${esc(b.kode)}</b></td>
           <td>${esc(b.nama)}</td>
-          <td>${esc(b.satuan)}</td>
+          <td>${esc(uom)}</td>
           <td><span class="tag" style="background:${li.warna}22;color:${li.warna};font-weight:700">${li.ico} ${b.lini}</span></td>
           <td>${b.tipe === 'jadi' ? 'Barang Jadi' : 'Bahan Baku'}</td>
           <td class="num ${kritis?'neg':''}"><b>${b.stok}</b></td>
@@ -43,8 +43,7 @@ function renderBarang(){
           </td>
         </tr>`;
       }).join('')}</tbody>
-    </table>
-  </div>`;
+    </table></div>`;
 }
 
 function readBarangForm(){
@@ -53,6 +52,8 @@ function readBarangForm(){
     kode:     document.getElementById('f-kode').value.trim(),
     nama:     document.getElementById('f-nama').value.trim(),
     satuan:   document.getElementById('f-sat').value.trim() || 'pcs',
+    satuanBesar: document.getElementById('f-satbesar').value.trim(),
+    konversi: +document.getElementById('f-konversi').value || 0,
     tipe:     document.getElementById('f-tipe').value,
     stokAwal: +document.getElementById('f-stok').value || 0,
     hargaBeli: +document.getElementById('f-hb').value || 0,
@@ -66,6 +67,8 @@ function fillBarangForm(b){
   document.getElementById('f-kode').value   = b.kode || '';
   document.getElementById('f-nama').value   = b.nama || '';
   document.getElementById('f-sat').value    = b.satuan || 'pcs';
+  document.getElementById('f-satbesar').value = b.satuanBesar || '';
+  document.getElementById('f-konversi').value = b.konversi || 0;
   document.getElementById('f-tipe').value   = b.tipe || 'bahan';
   document.getElementById('f-stok').value   = b.stokAwal || 0;
   document.getElementById('f-hb').value     = b.hargaBeli || 0;
@@ -74,7 +77,7 @@ function fillBarangForm(b){
   document.getElementById('f-cat').value    = b.catatan || '';
 }
 function clearBarangForm(){
-  fillBarangForm({ lini:'SB', kode:'', nama:'', satuan:'pcs', tipe:'bahan', stokAwal:0, hargaBeli:0, hargaJual:0, minStok:5, catatan:'' });
+  fillBarangForm({ lini:'SB', kode:'', nama:'', satuan:'pcs', satuanBesar:'', konversi:0, tipe:'bahan', stokAwal:0, hargaBeli:0, hargaJual:0, minStok:5, catatan:'' });
   editBarangId = null;
   document.getElementById('barang-form-title').textContent = '📦 Tambah Barang';
   document.getElementById('barang-submit').textContent = '＋ Tambah Barang';
@@ -84,21 +87,20 @@ function clearBarangForm(){
 function saveBarang(){
   const d = readBarangForm();
   if (!d.nama) return toast('Nama barang wajib diisi', 'error');
+  if (d.satuanBesar && (!d.konversi || d.konversi <= 0)) return toast('Isi nilai konversi (misal: 10)', 'error');
 
   if (editBarangId){
     const b = brg(editBarangId); if (!b) return;
     Object.assign(b, d);
     if (!b.kode) b.kode = d.lini + '-B' + uid().slice(0,3).toUpperCase();
-    recalcStok(); // Hitung ulang stok setelah edit stokAwal
-    persist(); queue({ type:'barang', action:'upsert', record:b });
+    recalcStok(); persist(); queue({ type:'barang', action:'upsert', record:b });
     toast('✓ Barang diperbarui');
   } else {
     if (!d.kode) d.kode = d.lini + '-B' + uid().slice(0,3).toUpperCase();
     if (S.barang.find(b => b.kode === d.kode)) return toast('Kode ' + d.kode + ' sudah dipakai', 'error');
     const rec = { id: uid(), ...d };
     S.barang.push(rec);
-    recalcStok(); // Hitung stok awal
-    persist(); queue({ type:'barang', action:'upsert', record:rec });
+    recalcStok(); persist(); queue({ type:'barang', action:'upsert', record:rec });
     toast('✓ Barang ditambahkan');
   }
   clearBarangForm(); renderBarang(); refreshDashboard();
@@ -126,7 +128,4 @@ function refreshDashboard(){
   if (typeof renderDashboard === 'function' && document.getElementById('v-dashboard')?.classList.contains('active')) renderDashboard();
 }
 
-window.saveBarang = saveBarang;
-window.editBarang = editBarang;
-window.delBarang = delBarang;
-window.cancelEditBarang = cancelEditBarang;
+window.saveBarang = saveBarang; window.editBarang = editBarang; window.delBarang = delBarang; window.cancelEditBarang = cancelEditBarang;

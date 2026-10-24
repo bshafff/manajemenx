@@ -171,6 +171,11 @@ function saveTerima(){
 
   /* Kas masuk */
   addKas(entity, jml);
+     // POST JURNAL OTOMATIS (PENERIMAAN)
+  const jLines = [];
+  jLines.push({ akun: '1001', debit: jml, kredit: 0 }); // Kas Masuk
+  jLines.push({ akun: jenis === 'pelunasan' ? '1201' : '4001', debit: 0, kredit: jml }); // Piutang atau Pendapatan
+  postJournal(tgl, no, ket || 'Penerimaan', entity, jLines);
 
   /* Bukti */
   const bukti = buktiUrl ? { url: buktiUrl, nama: buktiUrl.split('/').pop() }

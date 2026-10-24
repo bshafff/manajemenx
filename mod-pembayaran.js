@@ -120,6 +120,7 @@ function saveBayar(){
   const terbit = document.getElementById('pay-terbit').value === '1';
   const ket = document.getElementById('pay-ket').value.trim();
 
+   if (isPeriodLocked(tgl)) return toast('Periode ditutup', 'error');
   if (jml <= 0) return toast('Total bayar tidak valid', 'error');
   if (jml > kasOf(entity))
     return toast(`Kas ${entity} cuma ${rp(kasOf(entity))}`, 'error');

@@ -2,23 +2,11 @@
    VIEW LOADER
    ═══════════════════════════════════════════════════════════════ */
 const VIEW_FILES = {
-  'home':       'home.html',
-  'dashboard':  'dashboard.html',
-  'barang':     'barang.html',
-  'supplier':   'supplier.html',
-  'pelanggan':  'pelanggan.html',
-  'pembelian':  'pembelian.html',
-  'penjualan':  'penjualan.html',
-  'pembayaran': 'pembayaran.html',
-  'penerimaan': 'penerimaan.html',
-  'kaskecil':   'kaskecil.html',
-  'jurnal':     'jurnal.html',
-  // Modul baru yang ada di repo kamu
-  'produksi':   'produksi.html',
-  'panen':      'panen.html',
-  'kandang':    'kandang.html',
-  'akun':       'akun.html',
-  'eksekutif':  'eksekutif.html',
+  'home': 'home.html', 'dashboard': 'dashboard.html', 'barang': 'barang.html', 'supplier': 'supplier.html',
+  'pelanggan': 'pelanggan.html', 'pembelian': 'pembelian.html', 'penjualan': 'penjualan.html', 'pembayaran': 'pembayaran.html',
+  'penerimaan': 'penerimaan.html', 'kaskecil': 'kaskecil.html', 'jurnal': 'jurnal.html', 'produksi': 'produksi.html',
+  'panen': 'panen.html', 'kandang': 'kandang.html', 'akun': 'akun.html', 'eksekutif': 'eksekutif.html',
+  'coa': 'coa.html', 'jurnalUmum': 'jurnal-umum.html', 'laporanAkuntansi': 'laporan-akuntansi.html'
 };
 
 async function loadAllViews(){

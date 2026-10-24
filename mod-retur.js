@@ -44,6 +44,7 @@ function editRetur(type){
     const items = [...document.querySelectorAll('#ret-items .irow')].map(r => ({
       barangId: r.querySelector('.ret-brg').value, qty: +r.querySelector('.ret-qty').value || 0, harga: +r.querySelector('.ret-hrg').value || 0
     })).filter(x => x.qty > 0);
+    if (isPeriodLocked(tgl)) return toast('Periode ditutup', 'error');
     if (!items.length) return toast('Isi minimal 1 barang', 'error');
 
     if (isBeli) {
@@ -80,6 +81,7 @@ function editRetur(type){
 
 function delRetur(id){
   const p = S.retur.find(x => x.id === id); if (!p) return;
+  if (isPeriodLocked(p.tgl)) return toast('Periode ditutup', 'error');
   if (!confirm('Hapus retur ini? Stok akan dikembalikan ke kondisi semula.')) return;
   if (p.type === 'beli') p.items.forEach(i => { const b = brg(i.barangId); if (b) b.stok += i.qty; });
   else p.items.forEach(i => { const b = brg(i.barangId); if (b) b.stok -= i.qty; });

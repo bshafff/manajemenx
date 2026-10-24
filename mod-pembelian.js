@@ -1,23 +1,12 @@
-/* ═══════════════════════════════════════════════════════════════
-   PEMBELIAN
-   ═══════════════════════════════════════════════════════════════ */
-
 function renderPembelian(){
   const noEl = document.getElementById('pb-no');
-  if (noEl && !noEl.value) noEl.value = genDocNo('PB');
+  if (noEl && !noEl.value) noEl.value = genDocNo('FB');
   const tglEl = document.getElementById('pb-tgl'); if (tglEl && !tglEl.value) tglEl.value = today();
 
   const supEl = document.getElementById('pb-sup');
-  if (supEl){
-    const cur = supEl.value;
-    supEl.innerHTML = `<option value="">— Pilih Supplier —</option>` + S.supplier.filter(entityFilter).map(s => `<option value="${s.id}" ${cur===s.id?'selected':''}>${esc(s.nama)} · ${s.kode}</option>`).join('');
-  }
-
+  if (supEl){ const cur = supEl.value; supEl.innerHTML = `<option value="">— Pilih Supplier —</option>` + S.supplier.filter(entityFilter).map(s => `<option value="${s.id}" ${cur===s.id?'selected':''}>${esc(s.nama)} · ${s.kode}</option>`).join(''); }
   const entEl = document.getElementById('pb-ent');
-  if (entEl){
-    const cur = entEl.value; const vis = visibleEntities();
-    entEl.innerHTML = vis.map(k => { const e = entInfo(k); return `<option value="${k}" ${cur===k?'selected':''}>${e.ico} ${e.nama}</option>`; }).join('');
-  }
+  if (entEl){ const cur = entEl.value; const vis = visibleEntities(); entEl.innerHTML = vis.map(k => { const e = entInfo(k); return `<option value="${k}" ${cur===k?'selected':''}>${e.ico} ${e.nama}</option>`; }).join(''); }
 
   const items = document.getElementById('pb-items');
   if (items && !items.children.length) pbAddItem();
@@ -30,19 +19,17 @@ function renderPembelian(){
   if (!list.length){ el.innerHTML = `<div class="empty"><span class="e">🛒</span>Belum ada faktur</div>`; return; }
   
   el.innerHTML = `<div class="table-wrap"><table>
-      <thead><tr><th>No</th><th>Tanggal</th><th>Supplier</th><th class="num">DPP</th><th class="num">PPN</th><th class="num">Total</th><th>Status</th><th>Aksi</th></tr></thead>
+      <thead><tr><th>No</th><th>Tanggal</th><th>Supplier</th><th class="num">DPP</th><th class="num">Total</th><th>Status</th><th>Aksi</th></tr></thead>
       <tbody>${list.map(p => {
         const dpp = sum(p.items||[], i => i.qty*i.harga);
         const ppn = p.ppnPersen ? Math.round(dpp * p.ppnPersen / 100) : 0;
         const lunas = p.status === 'lunas';
         return `<tr>
           <td><b>${esc(p.no)}</b></td><td>${dmy(p.tgl)}</td><td>${esc(p.supplier||'-')}</td>
-          <td class="num">${rp(dpp)}</td><td class="num">${p.ppnPersen ? rp(ppn)+' ('+p.ppnPersen+'%)' : '-'}</td>
-          <td class="num"><b>${rp(dpp+ppn)}</b></td><td><span class="tag ${lunas?'t-ok':'t-warn'}">${p.status}</span></td>
+          <td class="num">${rp(dpp)}</td><td class="num"><b>${rp(dpp+ppn)}</b></td>
+          <td><span class="tag ${lunas?'t-ok':'t-warn'}">${p.status}</span></td>
           <td class="tb-actions">
             <button class="ibtn" onclick="pbView('${p.id}')" title="Detail">👁</button>
-            ${lunas ? `<button class="ibtn" onclick="printBuktiBayarPembelian('${p.id}')" title="Bukti Bayar">🖨</button>` : `<button class="ibtn" style="opacity:.4;cursor:not-allowed" title="Bukti bayar (perlu lunas)">🖨</button>`}
-            ${p.ppnPersen && p.nsfp ? `<button class="ibtn" onclick="printFakturPajak('${p.id}','beli')" title="Faktur Pajak">🧾</button>` : `<button class="ibtn" style="opacity:.4;cursor:not-allowed" title="Faktur pajak (perlu NSFP + PPN)">🧾</button>`}
             <button class="ibtn" onclick="pbDel('${p.id}')" title="Hapus">🗑️</button>
           </td>
         </tr>`;
@@ -62,32 +49,20 @@ function pbAddItem(){
   tb.appendChild(tr);
 }
 
-function pbOnBarang(sel){
-  const tr = sel.closest('tr'); const b = brg(sel.value); if (!b) return;
-  const hrg = tr.querySelector('.pb-hrg'); if (hrg && !+hrg.value) hrg.value = b.hargaBeli || 0;
-  pbHitung();
-}
-
-function pbReadItems(){
-  return [...document.querySelectorAll('#pb-items tr')].map(tr => {
-    const id = tr.querySelector('.pb-brg').value; const qty = +tr.querySelector('.pb-qty').value || 0; const hrg = +tr.querySelector('.pb-hrg').value || 0;
-    return { barangId: id, qty, harga: hrg };
-  }).filter(x => x.barangId && x.qty > 0);
-}
+function pbOnBarang(sel){ const tr = sel.closest('tr'); const b = brg(sel.value); if (!b) return; const hrg = tr.querySelector('.pb-hrg'); if (hrg && !+hrg.value) hrg.value = b.hargaBeli || 0; pbHitung(); }
+function pbReadItems(){ return [...document.querySelectorAll('#pb-items tr')].map(tr => { const id = tr.querySelector('.pb-brg').value; const qty = +tr.querySelector('.pb-qty').value || 0; const hrg = +tr.querySelector('.pb-hrg').value || 0; return { barangId: id, qty, harga: hrg }; }).filter(x => x.barangId && x.qty > 0); }
 
 function pbHitung(){
   let dpp = 0;
   document.querySelectorAll('#pb-items tr').forEach(tr => {
     const qty = +tr.querySelector('.pb-qty')?.value || 0; const hrg = +tr.querySelector('.pb-hrg')?.value || 0; const sub = qty * hrg;
-    const subEl = tr.querySelector('.pb-sub'); if (subEl) subEl.textContent = rp(sub);
-    dpp += sub;
+    const subEl = tr.querySelector('.pb-sub'); if (subEl) subEl.textContent = rp(sub); dpp += sub;
   });
-  const ppn = +document.getElementById('pb-ppn')?.value || 0;
-  const ppnVal = Math.round(dpp * ppn / 100); const total = dpp + ppnVal;
+  const ppn = +document.getElementById('pb-ppn')?.value || 0; const ppnVal = Math.round(dpp * ppn / 100); const total = dpp + ppnVal;
 
   const el = document.getElementById('pb-total');
   if (el) el.innerHTML = `
-    <div class="row-total"><span class="lbl">DPP (Dasar Pengenaan Pajak)</span><span>${rp(dpp)}</span></div>
+    <div class="row-total"><span class="lbl">DPP</span><span>${rp(dpp)}</span></div>
     <div class="row-total"><span class="lbl">PPN ${ppn}%</span><span>${rp(ppnVal)}</span></div>
     <div class="row-total big-row"><span class="lbl">Total Faktur</span><span class="val">${rp(total)}</span></div>`;
 }
@@ -99,40 +74,28 @@ function pbSave(){
   const status = document.getElementById('pb-status').value;
   const ppnPersen = +document.getElementById('pb-ppn').value || 0;
   const entity = document.getElementById('pb-ent').value;
-  const noFakturSup = document.getElementById('pb-nofak').value.trim();
-  const nsfp = document.getElementById('pb-nsfp').value.trim();
-  const ket = document.getElementById('pb-ket').value.trim();
   const items = pbReadItems();
 
   if (!items.length) return toast('Minimal 1 barang', 'error');
-  if (S.pembelian.find(x => x.no === no)) return toast('No faktur ' + no + ' sudah dipakai', 'error');
+  if (S.pembelian.find(x => x.no === no)) return toast('No faktur sudah dipakai', 'error');
 
   const sup = supId ? S.supplier.find(s => s.id === supId) : null;
-  const dpp = sum(items, i => i.qty * i.harga);
-  const ppnVal = Math.round(dpp * ppnPersen / 100);
-  const total = dpp + ppnVal;
-  if (status === 'lunas' && total > kasOf(entity)) return toast(`Kas ${entity} cuma ${rp(kasOf(entity))}`, 'error');
+  const dpp = sum(items, i => i.qty * i.harga); const ppnVal = Math.round(dpp * ppnPersen / 100); const total = dpp + ppnVal;
 
-  items.forEach(it => stokMasuk(it.barangId, it.qty, it.harga));
-  if (status === 'lunas') addKas(entity, -total);
-
-  const rec = { id: uid(), no, tgl, entity, supplier: sup ? sup.nama : '', supplierId: sup ? sup.id : '', status, items, ppnPersen, ket, noFakturSup, nsfp, dibayar: status === 'lunas' ? total : 0 };
+  const rec = { id: uid(), no, tgl, entity, supplier: sup ? sup.nama : '', status, items, ppnPersen, dibayar: status === 'lunas' ? total : 0 };
   S.pembelian.unshift(rec);
-     // POST JURNAL OTOMATIS (PEMBELIAN)
-  const jLines = [];
-  jLines.push({ akun: '1301', debit: total, kredit: 0 }); // Persediaan
-  const accHutang = status === 'lunas' ? '1001' : '2001'; // Kas atau Hutang
-  jLines.push({ akun: accHutang, debit: 0, kredit: total });
-  postJournal(tgl, no, `Beli dari ${sup ? sup.nama : 'Supplier'}`, entity, jLines);
-  recalcStok();
   persist(); queue({ type:'pembelian', action:'upsert', record:rec });
 
-  document.getElementById('pb-no').value = genDocNo('PB');
-  document.getElementById('pb-sup').value = ''; document.getElementById('pb-items').innerHTML = '';
-  document.getElementById('pb-ket').value = ''; document.getElementById('pb-ppn').value = 0;
-  document.getElementById('pb-nofak').value = ''; document.getElementById('pb-nsfp').value = '';
-  pbAddItem(); pbHitung();
+  // JURNAL OTOMATIS (Dr. Hutang Belum Difaktur, Cr. Hutang Usaha)
+  const jLines = [];
+  jLines.push({ akun: '2002', debit: total, kredit: 0 }); 
+  jLines.push({ akun: '2001', debit: 0, kredit: total }); 
+  postJournal(tgl, no, `Faktur Beli dari ${sup ? sup.nama : 'Supplier'}`, entity, jLines);
 
+  document.getElementById('pb-no').value = genDocNo('FB');
+  document.getElementById('pb-sup').value = ''; document.getElementById('pb-items').innerHTML = '';
+  document.getElementById('pb-ppn').value = 0;
+  pbAddItem(); pbHitung();
   renderPembelian(); refreshDashboard(); toast('✓ Faktur disimpan');
 }
 
@@ -143,9 +106,6 @@ function pbView(id){
     <table style="font-size:13px">
       <tr><td>Supplier</td><td><b>${esc(p.supplier||'-')}</b></td></tr>
       <tr><td>Status</td><td><span class="tag ${p.status==='lunas'?'t-ok':'t-warn'}">${p.status}</span></td></tr>
-      <tr><td>Kantor</td><td>${entInfo(p.entity).ico} ${entInfo(p.entity).nama}</td></tr>
-      ${p.noFakturSup ? `<tr><td>No. Faktur Supplier</td><td>${esc(p.noFakturSup)}</td></tr>` : ''}
-      ${p.nsfp ? `<tr><td>NSFP</td><td><code>${esc(p.nsfp)}</code></td></tr>` : ''}
     </table>
     <table style="font-size:13px;margin-top:10px">
       <thead><tr><th>Barang</th><th class="num">Qty</th><th class="num">Harga</th><th class="num">Sub</th></tr></thead>
@@ -161,12 +121,8 @@ function pbView(id){
 
 function pbDel(id){
   const p = S.pembelian.find(x => x.id === id); if (!p) return;
-  if (!confirm('Hapus faktur? Stok dikembalikan.')) return;
-  p.items.forEach(i => { const b = brg(i.barangId); if (b) b.stok -= i.qty; });
-  const dpp = sum(p.items, i => i.qty*i.harga); const ppnVal = p.ppnPersen ? Math.round(dpp * p.ppnPersen / 100) : 0;
-  if (p.status === 'lunas') addKas(p.entity, dpp + ppnVal);
+  if (!confirm('Hapus faktur?')) return;
   S.pembelian = S.pembelian.filter(x => x.id !== id);
-  recalcStok();
   persist(); queue({ type:'pembelian', action:'delete', id }); renderPembelian(); refreshDashboard(); toast('Dihapus');
 }
 

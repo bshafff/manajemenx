@@ -80,6 +80,7 @@ function kkSave(){
   const jml = +document.getElementById('kk-jml').value || 0;
   const ket = document.getElementById('kk-ket').value.trim();
 
+   if (isPeriodLocked(tgl)) return toast('Periode ditutup', 'error');
   if (jml <= 0) return toast('Jumlah tidak valid', 'error');
 
   if (jenis === 'masuk'){
@@ -125,6 +126,7 @@ function kkSave(){
 function kkDelMutasi(id){
   const ent = document.getElementById('kk-ent')?.value || 'HQ';
   const m = kkOf(ent).mutasi.find(x => x.id === id); if (!m) return;
+   if (isPeriodLocked(m.tgl)) return toast('Periode ditutup', 'error');
   if (!confirm('Batalkan mutasi ini?')) return;
   kkOf(ent).saldo += (m.keluar || 0) - (m.masuk || 0);
   addKas(ent, (m.masuk || 0) - (m.keluar || 0));

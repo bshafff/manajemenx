@@ -64,6 +64,14 @@ function genDocNo(prefix){
   return `${prefix}-${yy}${mm}-${dev}-${seq}`;
 }
 
+/* Hash PIN menggunakan SHA-256 */
+async function hashPin(pin){
+  const msgBuffer = new TextEncoder().encode(String(pin));
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 /* ═══════════════════════════════════════════════════════════════
    STORAGE
    ═══════════════════════════════════════════════════════════════ */
@@ -149,8 +157,6 @@ function migrate(){
   (S.barang || []).forEach(b => {
     if (!b.lini){ b.lini = (b.kode || '').split('-')[0] || 'SB'; if (!LINI[b.lini]) b.lini = 'SB'; changed = true; }
     if (b.stokAwal === undefined) {
-      // Jika stokAwal belum ada, kita asumsikan stok saat ini adalah stok akhir.
-      // Kita hitung mundur mutasinya untuk mendapatkan stokAwal.
       let mutasi = 0;
       S.pembelian.forEach(p => p.items.forEach(i => { if (i.barangId === b.id) mutasi += i.qty; }));
       S.penjualan.forEach(p => p.items.forEach(i => { if (i.barangId === b.id) mutasi -= i.qty; }));
@@ -165,6 +171,15 @@ function migrate(){
     }
   });
 
+  // MIGRASI PIN HASH
+  if (!Array.isArray(S.users)) S.users = [];
+  S.users.forEach(u => {
+    // Jika PIN masih teks pendek (belum di-hash)
+    if (u.pin && String(u.pin).length < 64) {
+      if (!u._needsHash) { u._needsHash = String(u.pin); changed = true; }
+    }
+  });
+
   if (changed){ localStorage[K_DATA] = JSON.stringify(S); }
 }
 migrate();
@@ -175,6 +190,23 @@ recalcStok();
 function persist(){
   localStorage[K_DATA] = JSON.stringify(S);
   updateStatus();
+}
+
+/* Fungsi untuk memproses antrean hash PIN yang tertunda */
+async function processPinHashes() {
+  let changed = false;
+  for (let u of (S.users || [])) {
+    if (u._needsHash) {
+      u.pin = await hashPin(u._needsHash);
+      delete u._needsHash;
+      changed = true;
+      queue({ type:'users', action:'upsert', record:u });
+    }
+  }
+  if (changed) { 
+    persist(); 
+    console.log('PIN berhasil di-hash secara otomatis');
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -323,7 +355,6 @@ function recalcStok(){
     });
     (S.panen || []).forEach(h => (h.items || []).forEach(i => { if (i.barangId === b.id) mutasi += i.qty; }));
     
-    // Stok akhir selalu dihitung dari stokAwal + Mutasi
     b.stok = (b.stokAwal || 0) + mutasi;
   });
 }
@@ -609,7 +640,7 @@ async function bootstrapSync(){
     if (json.serverTime) localStorage[K_SERVER_TIME] = json.serverTime;
     migrate();
     recalcKas();
-    recalcStok(); // <-- PENTING: Hitung ulang stok dari data yang baru ditarik
+    recalcStok();
     persist(); refreshAll();
     trackSync();
     toast('✓ Data disinkronkan dengan Sheet');
@@ -919,6 +950,11 @@ function boot(){
   refreshAll(); checkAppUpdate(false);
 }
 window.bootApp = boot;
+
+// Jalankan proses hash PIN setelah aplikasi dimuat
+window.addEventListener('load', () => {
+  setTimeout(processPinHashes, 1000); 
+});
 
 /* ═══════════════════════════════════════════════════════════════
    BACKUP & RESTORE & RECALC KAS

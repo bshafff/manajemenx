@@ -103,6 +103,7 @@ function seed(){
     entities: { HQ: { kas: 0 }, SB: { kas: 0 }, DR: { kas: 0 }, AY: { kas: 0 }, PK: { kas: 0 } },
     kasKecil: { perEntity: { HQ:{saldo:0,mutasi:[]}, SB:{saldo:0,mutasi:[]}, DR:{saldo:0,mutasi:[]}, AY:{saldo:0,mutasi:[]}, PK:{saldo:0,mutasi:[]} } },
     accounts: seedAccounts(),
+    pengaturan: [{ id: 'lockedPeriods', value: [] }], // Array of 'YYYY-MM'
     barang: [], supplier: [], pelanggan: [], 
     pesananPembelian: [], penerimaanBarang: [], pembelian: [], 
     penjualan: [], pembayaran: [], penerimaan: [],
@@ -146,6 +147,10 @@ function migrate(){
         changed = true;
       }
     });
+  }
+
+  if (!Array.isArray(S.pengaturan) || !S.pengaturan.length) {
+    S.pengaturan = [{ id: 'lockedPeriods', value: [] }]; changed = true;
   }
 
   ['barang','supplier','pelanggan','pesananPembelian','penerimaanBarang','pembelian','penjualan','pembayaran','penerimaan','transfer','permintaan','pesanan','penyesuaian','retur','jurnalUmum', 'produksi', 'panen', 'kandang', 'kandangLog'].forEach(k => {
@@ -230,6 +235,14 @@ const hppSell = p => sum(p.items || [], i => i.qty * (i.hpp || 0));
 function piutangEnt(kode){ return sum(S.penjualan.filter(p => (kode === 'ALL' || p.entity === kode) && p.status !== 'lunas'), p => totSell(p) - (p.dibayar || 0)); }
 function hutangEnt(kode){ return sum(S.pembelian.filter(p => (kode === 'ALL' || p.entity === kode) && p.status !== 'lunas'), p => totBuy(p) - (p.dibayar || 0)); }
 
+/* CEK TUTUP BUKU */
+function isPeriodLocked(tgl) {
+  if (!tgl) return false;
+  const period = String(tgl).slice(0, 7); // 'YYYY-MM'
+  const lockRec = (S.pengaturan || []).find(x => x.id === 'lockedPeriods');
+  return lockRec && Array.isArray(lockRec.value) && lockRec.value.includes(period);
+}
+
 function getAccountBalance(accId, ent = 'ALL') {
   let bal = 0;
   S.jurnalUmum.forEach(j => {
@@ -274,12 +287,7 @@ function recalcStok(){
     (S.produksi || []).forEach(w => { (w.bahan || []).forEach(i => { if (i.barangId === b.id) mutasi -= i.qty; }); (w.output || []).forEach(i => { if (i.barangId === b.id) mutasi += i.qty; }); });
     (S.panen || []).forEach(h => (h.items || []).forEach(i => { if (i.barangId === b.id) mutasi += i.qty; }));
     (S.penyesuaian || []).forEach(p => { if (p.barangId === b.id) mutasi += p.selisih; });
-    
-    // Retur Beli mengurangi stok, Retur Jual menambah stok
-    (S.retur || []).forEach(r => (r.items || []).forEach(i => { 
-      if (i.barangId === b.id) mutasi += (r.type === 'beli' ? -i.qty : i.qty); 
-    }));
-
+    (S.retur || []).forEach(r => (r.items || []).forEach(i => { if (i.barangId === b.id) mutasi += (r.type === 'beli' ? -i.qty : i.qty); }));
     b.stok = (b.stokAwal || 0) + mutasi;
   });
 }
@@ -422,6 +430,7 @@ async function bootstrapSync(){
       if (d.pembelian) S.pembelian = d.pembelian; if (d.penjualan) S.penjualan = d.penjualan; if (d.pembayaran) S.pembayaran = d.pembayaran;
       if (d.penerimaan) S.penerimaan = d.penerimaan; if (d.transfer) S.transfer = d.transfer; if (d.permintaan) S.permintaan = d.permintaan;
       if (d.pesanan) S.pesanan = d.pesanan; if (d.users?.length) S.users = d.users; if (d.accounts) S.accounts = d.accounts;
+      if (d.pengaturan) S.pengaturan = d.pengaturan; 
       if (d.penyesuaian) S.penyesuaian = d.penyesuaian; if (d.retur) S.retur = d.retur; if (d.jurnalUmum) S.jurnalUmum = d.jurnalUmum;
       if (d.produksi) S.produksi = d.produksi; if (d.panen) S.panen = d.panen; if (d.kandang) S.kandang = d.kandang; if (d.kandangLog) S.kandangLog = d.kandangLog;
       if (d.kk?.length){ const per = {}; ['HQ','SB','DR','AY','PK'].forEach(k => per[k] = { saldo: 0, mutasi: [] }); d.kk.forEach(m => { const e = m.entity || 'HQ'; if (!per[e]) per[e] = { saldo:0, mutasi:[] }; per[e].mutasi.push(m); per[e].saldo += (m.masuk||0) - (m.keluar||0); }); S.kasKecil.perEntity = per; }
@@ -435,7 +444,8 @@ async function bootstrapSync(){
       mergeData('barang', d.barang); mergeData('supplier', d.supplier); mergeData('pelanggan', d.pelanggan); mergeData('pesananPembelian', d.pesananPembelian);
       mergeData('penerimaanBarang', d.penerimaanBarang); mergeData('pembelian', d.pembelian); mergeData('penjualan', d.penjualan); mergeData('pembayaran', d.pembayaran);
       mergeData('penerimaan', d.penerimaan); mergeData('transfer', d.transfer); mergeData('permintaan', d.permintaan); mergeData('pesanan', d.pesanan);
-      mergeData('users', d.users); mergeData('accounts', d.accounts); mergeData('penyesuaian', d.penyesuaian); mergeData('retur', d.retur); mergeData('jurnalUmum', d.jurnalUmum);
+      mergeData('users', d.users); mergeData('accounts', d.accounts); mergeData('pengaturan', d.pengaturan);
+      mergeData('penyesuaian', d.penyesuaian); mergeData('retur', d.retur); mergeData('jurnalUmum', d.jurnalUmum);
       mergeData('produksi', d.produksi); mergeData('panen', d.panen); mergeData('kandang', d.kandang); mergeData('kandangLog', d.kandangLog);
       if (d.kk && d.kk.length) { d.kk.forEach(m => { const ent = m.entity || 'HQ'; if (!S.kasKecil.perEntity[ent]) S.kasKecil.perEntity[ent] = {saldo:0, mutasi:[]}; const per = S.kasKecil.perEntity[ent]; const idx = per.mutasi.findIndex(x => x.id === m.id); if (idx >= 0){ const old = per.mutasi[idx]; if (old.updatedAt && m.updatedAt && old.updatedAt > m.updatedAt) return; per.mutasi[idx] = m; } else per.mutasi.unshift(m); }); Object.keys(S.kasKecil.perEntity).forEach(k => { const obj = S.kasKecil.perEntity[k]; obj.saldo = obj.mutasi.reduce((acc, curr) => acc + ((curr.masuk||0) - (curr.keluar||0)), 0); }); }
       if (json.deleted && json.deleted.length) { json.deleted.forEach(del => { if (S[del.type] && Array.isArray(S[del.type])) S[del.type] = S[del.type].filter(x => x.id !== del.id); if (del.type === 'kk') { Object.keys(S.kasKecil.perEntity).forEach(k => { const obj = S.kasKecil.perEntity[k]; obj.mutasi = obj.mutasi.filter(x => x.id !== del.id); obj.saldo = obj.mutasi.reduce((acc, curr) => acc + ((curr.masuk||0) - (curr.keluar||0)), 0); }); } }); }
@@ -455,7 +465,9 @@ function pushAllToSheet(){
   (S.penerimaan||[]).forEach(p => push('penerimaan', p)); (S.transfer||[]).forEach(p => push('transfer', p)); (S.permintaan||[]).forEach(p => push('permintaan', p));
   (S.pesanan||[]).forEach(p => push('pesanan', p)); (S.produksi||[]).forEach(p => push('produksi', p)); (S.panen||[]).forEach(p => push('panen', p));
   (S.kandang||[]).forEach(p => push('kandang', p)); (S.kandangLog||[]).forEach(p => push('kandangLog', p)); (S.users||[]).forEach(u => push('users', u));
-  (S.accounts||[]).forEach(a => push('accounts', a)); (S.penyesuaian||[]).forEach(p => push('penyesuaian', p)); (S.retur||[]).forEach(p => push('retur', p)); (S.jurnalUmum||[]).forEach(j => push('jurnalUmum', j));
+  (S.accounts||[]).forEach(a => push('accounts', a)); 
+  (S.pengaturan||[]).forEach(p => push('pengaturan', p)); // <-- Sync Pengaturan
+  (S.penyesuaian||[]).forEach(p => push('penyesuaian', p)); (S.retur||[]).forEach(p => push('retur', p)); (S.jurnalUmum||[]).forEach(j => push('jurnalUmum', j));
   Object.values(S.kasKecil.perEntity||{}).forEach(o => (o.mutasi||[]).forEach(m => push('kk', m)));
   const keys = new Set(ops.map(opKey)); const q = getQueue().filter(o => !(o.action === 'upsert' && keys.has(opKey(o))));
   persist(); setQueue(q.concat(ops)); localStorage[K_BOOT] = '1'; if (ops.length) { toast('⬆ Mengirim ' + ops.length + ' data…'); flush(); }
@@ -475,6 +487,7 @@ function moreItems(){
     { id:'eksekutif', icon:'🧭', label:'Ringkasan Eksekutif' }, { id:'coa', icon:'🏦', label:'Akun Perkiraan' },
     { id:'jurnalUmum', icon:'📒', label:'Jurnal Umum' }, { id:'laporanAkuntansi', icon:'⚖️', label:'Neraca Saldo' },
     { id:'laporanKeuangan', icon:'📈', label:'Laba Rugi & Neraca' }, { id:'jurnal', icon:'📚', label:'Buku Besar' },
+    { id:'tutupBuku', icon:'🔒', label:'Tutup Buku' },
     { id:'supplier', icon:'🏭', label:'Supplier' }, { id:'pelanggan', icon:'👥', label:'Pelanggan' }, { id:'akun', icon:'👤', label:'Kelola Akun' },
   ] : [ { id:'pembayaran', icon:'💸', label:'Pembayaran' }, { id:'kaskecil', icon:'👛', label:'Kas Kecil' }, { id:'jurnal', icon:'📚', label:'Jurnal Divisi' } ];
   return base.filter(i => (i.id !== 'akun' || isOwner) && canAccess(i.id));
@@ -514,6 +527,7 @@ function renderSidebar(){
       <div class="sb-item ${view==='laporanAkuntansi'?'on':''}" onclick="openModule('laporanAkuntansi')"><span class="sb-ic">⚖️</span><span class="sb-lbl">Neraca Saldo</span></div>
       <div class="sb-item ${view==='laporanKeuangan'?'on':''}" onclick="openModule('laporanKeuangan')"><span class="sb-ic">📈</span><span class="sb-lbl">Laba Rugi & Neraca</span></div>
       <div class="sb-item ${view==='jurnal'?'on':''}" onclick="openModule('jurnal')"><span class="sb-ic">📚</span><span class="sb-lbl">Buku Besar</span></div>
+      <div class="sb-item ${view==='tutupBuku'?'on':''}" onclick="openModule('tutupBuku')"><span class="sb-ic">🔒</span><span class="sb-lbl">Tutup Buku</span></div>
       <div class="sb-section">Pembelian</div>
       <div class="sb-item ${view==='pesananPembelian'?'on':''}" onclick="openModule('pesananPembelian')"><span class="sb-ic">📝</span><span class="sb-lbl">Pesanan Pembelian</span></div>
       <div class="sb-item ${view==='penerimaanBarang'?'on':''}" onclick="openModule('penerimaanBarang')"><span class="sb-ic">📥</span><span class="sb-lbl">Penerimaan Barang</span></div>
@@ -577,12 +591,13 @@ function refreshView(id){
     laporanKeuangan: () => typeof renderLaporanKeuangan === 'function' && renderLaporanKeuangan(),
     penyesuaian: () => typeof renderPenyesuaian === 'function' && renderPenyesuaian(),
     retur: () => typeof renderRetur === 'function' && renderRetur(),
+    tutupBuku: () => typeof renderTutupBuku === 'function' && renderTutupBuku(),
   };
   if (map[id]) map[id]();
 }
 
 function refreshAll(){
-  Object.keys({ home:1, dashboard:1, barang:1, supplier:1, pelanggan:1, pesananPembelian:1, penerimaanBarang:1, pembelian:1, penjualan:1, pembayaran:1, penerimaan:1, kaskecil:1, jurnal:1, akun:1, eksekutif:1, produksi:1, panen:1, kandang:1, coa:1, jurnalUmum:1, laporanAkuntansi:1, laporanKeuangan:1, penyesuaian:1, retur:1 }).forEach(refreshView);
+  Object.keys({ home:1, dashboard:1, barang:1, supplier:1, pelanggan:1, pesananPembelian:1, penerimaanBarang:1, pembelian:1, penjualan:1, pembayaran:1, penerimaan:1, kaskecil:1, jurnal:1, akun:1, eksekutif:1, produksi:1, panen:1, kandang:1, coa:1, jurnalUmum:1, laporanAkuntansi:1, laporanKeuangan:1, penyesuaian:1, retur:1, tutupBuku:1 }).forEach(refreshView);
   updateStatus(); renderSidebar();
 }
 

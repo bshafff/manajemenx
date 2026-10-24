@@ -55,6 +55,7 @@ function saveJurnalUmum(){
     const akun = r.querySelector('.ju-akun').value;
     const debit = +r.querySelector('.ju-debit').value || 0;
     const kredit = +r.querySelector('.ju-kredit').value || 0;
+    if (isPeriodLocked(tgl)) return toast('Periode ditutup', 'error');
     if (debit > 0 || kredit > 0) lines.push({ akun, debit, kredit });
   });
   if (!lines.length) return toast('Isi minimal 1 baris', 'error');
@@ -68,6 +69,7 @@ function saveJurnalUmum(){
 }
 
 function delJurnalUmum(id){
+  if (isPeriodLocked(j.tgl)) return toast('Periode ditutup', 'error');
   if (!confirm('Hapus jurnal ini?')) return;
   S.jurnalUmum = S.jurnalUmum.filter(x => x.id !== id);
   persist(); queue({ type:'jurnalUmum', action:'delete', id }); renderJurnalUmum(); toast('Dihapus');

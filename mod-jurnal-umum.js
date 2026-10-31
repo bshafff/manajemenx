@@ -72,6 +72,7 @@ function delJurnalUmum(id){
   const j = S.jurnalUmum.find(x => x.id === id); if (!j) return;
   if (isPeriodLocked(j.tgl)) return toast('Periode ditutup', 'error');
   if (!confirm('Hapus jurnal ini?')) return;
+  if (typeof logAudit === 'function') logAudit('hapus_jurnal', (j.ref || '-') + ' · ' + j.tgl);
   S.jurnalUmum = S.jurnalUmum.filter(x => x.id !== id);
   persist(); queue({ type:'jurnalUmum', action:'delete', id }); renderJurnalUmum(); toast('Dihapus');
 }

@@ -188,6 +188,7 @@ function pjDel(id){
   if (p.status === 'lunas') addKas(p.entity, -(dpp + ppnVal));
   S.penjualan = S.penjualan.filter(x => x.id !== id);
   removeJournalsFor(p.id, p.no);
+  if (typeof logAudit === 'function') logAudit('hapus_penjualan', p.no + ' · ' + rp(dpp + ppnVal));
   recalcStok();
   persist(); queue({ type:'penjualan', action:'delete', id }); renderPenjualan(); refreshDashboard(); toast('Dihapus');
 }

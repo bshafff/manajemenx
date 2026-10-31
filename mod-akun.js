@@ -40,7 +40,7 @@ function akModal(id){
   openModal(u ? '✏️ Ubah Akun' : '➕ Akun Baru', 'Atur siapa boleh membuka menu apa', `
     <div class="form-grid">
       <div><label>Nama</label><input id="ak-nama" value="${u ? esc(u.nama) : ''}" placeholder="Nama staf"></div>
-      <div><label>PIN (4–6 angka)</label><input id="ak-pin" inputmode="numeric" maxlength="6" value="${u ? esc(u.pin) : ''}"></div>
+      <div><label>PIN (6–8 angka)${u ? ' · kosongkan jika tidak diganti' : ''}</label><input id="ak-pin" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password" value=""></div>
       <div><label>Role</label><select id="ak-role" onchange="akFillMods(this.value)">${ROLES.map(r => `<option ${r===role?'selected':''}>${r}</option>`).join('')}</select></div>
       <div><label>Entitas (lini)</label><select id="ak-ent">${entOpts(u ? u.entity : 'SB')}</select></div>
     </div>
@@ -54,7 +54,11 @@ function akModal(id){
 async function akSave(id){
   const nama = val('ak-nama'), pin = val('ak-pin'), role = val('ak-role'), entity = val('ak-ent');
   if (!nama) return toast('Nama wajib diisi', 'error');
-  if (!/^\d{4,6}$/.test(pin)) return toast('PIN harus 4–6 angka', 'error');
+  const editing = id ? S.users.find(x => x.id === id) : null;
+  if (pin || !editing){
+    if (!/^\d{6,8}$/.test(pin)) return toast('PIN baru harus 6–8 angka', 'error');
+    if (WEAK_PINS.includes(pin)) return toast('PIN terlalu mudah ditebak, pilih yang lain', 'error');
+  }
   
   const sel = MOD_LIST.map(m => m[0]).filter(k => document.getElementById('ak-m-' + k).checked);
   const def = roleDefault(role);
@@ -67,14 +71,13 @@ async function akSave(id){
     if (u.role === 'owner' && role !== 'owner' && S.users.filter(x => x.role === 'owner').length < 2)
       return toast('Harus ada minimal satu owner', 'error');
     
-    // Hash PIN baru
-    const hashed = await hashPin(pin);
-    Object.assign(u, { nama, pin: hashed, role, entity, akses });
+    Object.assign(u, { nama, role, entity, akses });
+    if (pin) u.pin = await makePinHash(pin);
+    if (typeof logAudit === 'function') logAudit('ubah_akun', nama + ' (' + role + ')' + (pin ? ' · PIN diganti' : ''));
   } else {
-    // Hash PIN user baru
-    const hashed = await hashPin(pin);
-    u = { id: uid(), nama, pin: hashed, role, entity, akses };
+    u = { id: uid(), nama, pin: await makePinHash(pin), role, entity, akses };
     S.users.push(u);
+    if (typeof logAudit === 'function') logAudit('buat_akun', nama + ' (' + role + ')');
   }
   
   persist(); 
@@ -93,7 +96,7 @@ function akDel(id){
   if (u.role === 'owner' && S.users.filter(x => x.role === 'owner').length < 2)
     return toast('Harus ada minimal satu owner', 'error');
   if (!confirm(`Hapus akun ${u.nama}?`)) return;
-  
+  if (typeof logAudit === 'function') logAudit('hapus_akun', u.nama);
   S.users = S.users.filter(x => x.id !== id);
   persist(); 
   if (typeof farmQueue === 'function') farmQueue('users', 'delete', null, id); 
@@ -112,10 +115,10 @@ function renderAkun(){
   
   el.innerHTML = `<div class="card"><div class="card-header-flex"><h3>👤 Kelola Akun</h3>
     <button class="btn btn-p btn-sm" onclick="akModal()">+ Akun</button></div>
-    <div class="hint">${S.users.length} akun · PIN disimpan apa adanya, ganti PIN bawaan sebelum dipakai sungguhan.</div>
+    <div class="hint">${S.users.length} akun · PIN disimpan sebagai hash berbumbu (tidak bisa dilihat). PIN baru minimal 6 angka.</div>
     <div class="table-wrap"><table><thead><tr><th>Akun</th><th>Role</th><th>Lini</th><th>Menu</th><th></th></tr></thead><tbody>
     ${S.users.map(u => { const e = entInfo(u.entity); const m = userMods(u);
-      return `<tr><td><b>${esc(u.nama)}</b><br><span class="hint">PIN ${'•'.repeat(String(u.pin).length)}</span></td>
+      return `<tr><td><b>${esc(u.nama)}</b><br><span class="hint">PIN ••••••</span></td>
       <td>${esc(u.role)}</td><td>${e.ico} ${e.kode}</td>
       <td>${u.role === 'owner' ? 'Semua' : m.length + ' menu' + (Array.isArray(u.akses) ? ' (manual)' : '')}</td>
       <td class="tb-actions"><button class="ibtn" onclick="akModal('${u.id}')">✏️</button>

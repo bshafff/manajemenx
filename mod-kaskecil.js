@@ -131,6 +131,7 @@ function kkDelMutasi(id){
   kkOf(ent).saldo += (m.keluar || 0) - (m.masuk || 0);
   addKas(ent, (m.masuk || 0) - (m.keluar || 0));
   kkOf(ent).mutasi = kkOf(ent).mutasi.filter(x => x.id !== id);
+  if (typeof logAudit === 'function') logAudit('hapus_kas_kecil', ent + ' ' + m.tgl + ' · ' + rp((m.masuk || 0) || (m.keluar || 0)));
   if (!removeJournalsFor(id, null)){ // jurnal lama tanpa src: cocokkan tgl + nominal
     const nom = (m.masuk || 0) || (m.keluar || 0);
     const lama = S.jurnalUmum.find(j => !j.src && j.ref === 'KK-' + ent && j.tgl === m.tgl && sum(j.lines, l => l.debit || 0) === nom);

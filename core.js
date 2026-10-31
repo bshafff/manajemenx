@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    KONFIGURASI
    ═══════════════════════════════════════════════════════════════ */
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbw8HStRE-XxZ0sXJ7unh_QpZAVb_wh8NaoTRGd1zqO3m0bETGqlqly2Qs1XTluWo-M/exec';
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwobjSbT7Pt83lnYyhOM_yOYFgXrTOtAQdLEePCXwRDgJot4dkhdw3Zvo7z2zJCEmYI/exec';
 const API_KEY = 'JTvr3Ce7EF59hPsN8iDhoWZdahfuaM88';
 const PPN_DEFAULT = 11;
 
@@ -53,7 +53,15 @@ function getDeviceId(){
 function genDocNo(prefix){
   const d = new Date();
   const yy = String(d.getFullYear()).slice(-2); const mm = String(d.getMonth() + 1).padStart(2, '0');
-  return `${prefix}-${yy}${mm}-${getDeviceId()}-${String(Date.now()).slice(-4)}`;
+  const base = `${prefix}-${yy}${mm}-`; let max = 0;
+  Object.keys(S).forEach(k => {
+    const arr = S[k]; if (!Array.isArray(arr)) return;
+    for (const x of arr){
+      const n = x && (x.no || x.ref);
+      if (typeof n === 'string' && n.startsWith(base)){ const t = n.slice(base.length); if (/^\d{1,5}$/.test(t)) max = Math.max(max, +t); }
+    }
+  });
+  return base + String(max + 1).padStart(3, '0');
 }
 
 async function hashPin(pin){
@@ -72,7 +80,7 @@ const K_ACTIVE_DIV = 'erp_active_div'; const K_SERVER_TIME= 'erp_server_time';
 const getUrl   = () => localStorage[K_URL] || '';
 const hasUrl   = () => !!localStorage[K_URL];
 const getQueue = () => { try { return JSON.parse(localStorage[K_QUEUE] || '[]'); } catch { return []; } };
-const setQueue = q => { localStorage[K_QUEUE] = JSON.stringify(q); updateStatus(); };
+const setQueue = q => { try { localStorage[K_QUEUE] = JSON.stringify(q); } catch (e) { console.error('Antrean gagal disimpan', e); toast('⚠️ Penyimpanan perangkat penuh, data belum terkirim bisa hilang. Backup sekarang!', 'error', 6000); } updateStatus(); };
 const getFailed = () => { try { return JSON.parse(localStorage[K_FAILED] || '[]'); } catch { return []; } };
 const failedCount = () => getFailed().length;
 
@@ -115,7 +123,7 @@ function seed(){
     pesananPembelian: [], penerimaanBarang: [], pembelian: [], 
     penjualan: [], pembayaran: [], penerimaan: [],
     transfer: [], permintaan: [], pesanan: [], penyesuaian: [], retur: [], aset: [],
-    jurnalUmum: [], produksi: [], panen: [], kandang: [], kandangLog: [],
+    jurnalUmum: [], produksi: [], panen: [], kandang: [], kandangLog: [], audit: [],
     users: [
       { id:'u-owner',  nama:'Owner',      role:'owner',   entity:'HQ', pin:'1234' },
       { id:'u-man-sb', nama:'Manajer SB', role:'manajer', entity:'SB', pin:'1111' },
@@ -160,7 +168,7 @@ function migrate(){
     S.pengaturan = [{ id: 'lockedPeriods', value: [] }]; changed = true;
   }
 
-  ['barang','supplier','pelanggan','pesananPembelian','penerimaanBarang','pembelian','penjualan','pembayaran','penerimaan','transfer','permintaan','pesanan','penyesuaian','retur','aset','jurnalUmum', 'produksi', 'panen', 'kandang', 'kandangLog'].forEach(k => {
+  ['barang','supplier','pelanggan','pesananPembelian','penerimaanBarang','pembelian','penjualan','pembayaran','penerimaan','transfer','permintaan','pesanan','penyesuaian','retur','aset','jurnalUmum', 'produksi', 'panen', 'kandang', 'kandangLog', 'audit'].forEach(k => {
     if (!Array.isArray(S[k])){ S[k] = []; changed = true; }
   });
 
@@ -199,12 +207,19 @@ function migrate(){
 migrate();
 recalcStok();
 
-function persist(){ localStorage[K_DATA] = JSON.stringify(S); updateStatus(); }
+function persist(){
+  try { localStorage[K_DATA] = JSON.stringify(S); }
+  catch (e){
+    console.error('persist gagal', e);
+    if (!window._persistWarned){ window._persistWarned = true; toast('⚠️ Penyimpanan perangkat penuh! Backup lalu hapus data lama.', 'error', 6000); setTimeout(() => { window._persistWarned = false; }, 30000); }
+  }
+  updateStatus();
+}
 
 async function processPinHashes() {
   let changed = false;
   for (let u of (S.users || [])) {
-    if (u._needsHash) { u.pin = await hashPin(u._needsHash); delete u._needsHash; changed = true; queue({ type:'users', action:'upsert', record:u }); }
+    if (u._needsHash) { u.pin = typeof makePinHash === 'function' ? await makePinHash(u._needsHash) : await hashPin(u._needsHash); delete u._needsHash; changed = true; queue({ type:'users', action:'upsert', record:u }); }
   }
   if (changed) { persist(); console.log('PIN di-hash otomatis'); }
 }
@@ -363,6 +378,7 @@ async function flush(){
 }
 
 function queue(payload){
+  if (payload.action === 'delete' && typeof logAuditDelete === 'function') logAuditDelete(payload);
   if (!hasUrl() || getUrl() === 'DEMO') return;
   if (payload.action === 'upsert' && payload.record) { payload.record.updatedAt = new Date().toISOString(); }
   let q = getQueue();
@@ -459,7 +475,7 @@ async function bootstrapSyncRun(silent){
       if (d.penerimaan) S.penerimaan = d.penerimaan; if (d.transfer) S.transfer = d.transfer; if (d.permintaan) S.permintaan = d.permintaan;
       if (d.pesanan) S.pesanan = d.pesanan; if (d.users?.length) S.users = d.users; if (d.accounts) S.accounts = d.accounts;
       if (d.pengaturan) S.pengaturan = d.pengaturan; 
-      if (d.penyesuaian) S.penyesuaian = d.penyesuaian; if (d.retur) S.retur = d.retur; if (d.aset) S.aset = d.aset; if (d.jurnalUmum) S.jurnalUmum = d.jurnalUmum;
+      if (d.penyesuaian) S.penyesuaian = d.penyesuaian; if (d.retur) S.retur = d.retur; if (d.aset) S.aset = d.aset; if (d.jurnalUmum) S.jurnalUmum = d.jurnalUmum; if (d.audit) S.audit = d.audit;
       if (d.produksi) S.produksi = d.produksi; if (d.panen) S.panen = d.panen; if (d.kandang) S.kandang = d.kandang; if (d.kandangLog) S.kandangLog = d.kandangLog;
       if (d.kk?.length){ const per = {}; ['HQ','SB','DR','AY','PK'].forEach(k => per[k] = { saldo: 0, mutasi: [] }); d.kk.forEach(m => { const e = m.entity || 'HQ'; if (!per[e]) per[e] = { saldo:0, mutasi:[] }; per[e].mutasi.push(m); per[e].saldo += (m.masuk||0) - (m.keluar||0); }); S.kasKecil.perEntity = per; }
     } else {
@@ -473,7 +489,7 @@ async function bootstrapSyncRun(silent){
       mergeData('penerimaanBarang', d.penerimaanBarang); mergeData('pembelian', d.pembelian); mergeData('penjualan', d.penjualan); mergeData('pembayaran', d.pembayaran);
       mergeData('penerimaan', d.penerimaan); mergeData('transfer', d.transfer); mergeData('permintaan', d.permintaan); mergeData('pesanan', d.pesanan);
       mergeData('users', d.users); mergeData('accounts', d.accounts); mergeData('pengaturan', d.pengaturan);
-      mergeData('penyesuaian', d.penyesuaian); mergeData('retur', d.retur); mergeData('aset', d.aset); mergeData('jurnalUmum', d.jurnalUmum);
+      mergeData('penyesuaian', d.penyesuaian); mergeData('retur', d.retur); mergeData('aset', d.aset); mergeData('jurnalUmum', d.jurnalUmum); mergeData('audit', d.audit);
       mergeData('produksi', d.produksi); mergeData('panen', d.panen); mergeData('kandang', d.kandang); mergeData('kandangLog', d.kandangLog);
       if (d.kk && d.kk.length) { d.kk.forEach(m => { const ent = m.entity || 'HQ'; if (!S.kasKecil.perEntity[ent]) S.kasKecil.perEntity[ent] = {saldo:0, mutasi:[]}; const per = S.kasKecil.perEntity[ent]; const idx = per.mutasi.findIndex(x => x.id === m.id); if (idx >= 0){ const old = per.mutasi[idx]; if (old.updatedAt && m.updatedAt && old.updatedAt > m.updatedAt) return; per.mutasi[idx] = m; } else per.mutasi.unshift(m); }); Object.keys(S.kasKecil.perEntity).forEach(k => { const obj = S.kasKecil.perEntity[k]; obj.saldo = obj.mutasi.reduce((acc, curr) => acc + ((curr.masuk||0) - (curr.keluar||0)), 0); }); }
       if (json.deleted && json.deleted.length) { json.deleted.forEach(del => { if (S[del.type] && Array.isArray(S[del.type])) S[del.type] = S[del.type].filter(x => x.id !== del.id); if (del.type === 'kk') { Object.keys(S.kasKecil.perEntity).forEach(k => { const obj = S.kasKecil.perEntity[k]; obj.mutasi = obj.mutasi.filter(x => x.id !== del.id); obj.saldo = obj.mutasi.reduce((acc, curr) => acc + ((curr.masuk||0) - (curr.keluar||0)), 0); }); } }); }
@@ -502,7 +518,7 @@ function pushAllToSheet(){
   (S.kandang||[]).forEach(p => push('kandang', p)); (S.kandangLog||[]).forEach(p => push('kandangLog', p)); (S.users||[]).forEach(u => push('users', u));
   (S.accounts||[]).forEach(a => push('accounts', a)); 
   (S.pengaturan||[]).forEach(p => push('pengaturan', p));
-  (S.penyesuaian||[]).forEach(p => push('penyesuaian', p)); (S.retur||[]).forEach(p => push('retur', p)); (S.aset||[]).forEach(p => push('aset', p)); (S.jurnalUmum||[]).forEach(j => push('jurnalUmum', j));
+  (S.penyesuaian||[]).forEach(p => push('penyesuaian', p)); (S.retur||[]).forEach(p => push('retur', p)); (S.aset||[]).forEach(p => push('aset', p)); (S.jurnalUmum||[]).forEach(j => push('jurnalUmum', j)); (S.audit||[]).forEach(a => push('audit', a));
   Object.values(S.kasKecil.perEntity||{}).forEach(o => (o.mutasi||[]).forEach(m => push('kk', m)));
   const keys = new Set(ops.map(opKey)); const q = getQueue().filter(o => !(o.action === 'upsert' && keys.has(opKey(o))));
   persist(); setQueue(q.concat(ops)); localStorage[K_BOOT] = '1'; if (ops.length) { toast('⬆ Mengirim ' + ops.length + ' data…'); flush(); }
@@ -534,7 +550,7 @@ function openMore(){
   let html = ''; if (isOwner && activeDiv !== 'HQ') html += row('🏢', 'Kembali ke Pusat', 'closeModal();exitDiv()');
   html += moreItems().map(i => row(i.icon, i.label, `closeModal();openModule('${i.id}')`)).join('');
   if (isOwner && activeDiv === 'HQ'){ html += '<div class="more-sec">Divisi Usaha</div>' + Object.keys(LINI).map(k => row(LINI[k].ico, LINI[k].nama, `closeModal();enterDiv('${k}')`)).join(''); }
-  html += '<div class="more-sec">Akun</div>' + row('🚪', 'Keluar', 'closeModal();logout()');
+  html += '<div class="more-sec">Akun</div>' + row('🔑', 'Ganti PIN', 'closeModal();openGantiPin()') + row('🚪', 'Keluar', 'closeModal();logout()');
   $('#mc').innerHTML = `<div class="mhead"><div><h3>Menu Lainnya</h3><div class="msub">${esc(u.nama)} · ${u.role.toUpperCase()}</div></div><button class="mx" onclick="closeModal()">×</button></div><div class="more-list">${html}</div>`;
   modalOk = null; $('#modal').classList.add('show');
 }
@@ -655,6 +671,7 @@ function renderHome(){
   const sysMenu = document.getElementById('sys-menu'); const sysLabel = document.getElementById('sys-label');
   if (u.role === 'owner') { if (sysMenu) sysMenu.style.display = ''; if (sysLabel) sysLabel.style.display = ''; } else { if (sysMenu) sysMenu.style.display = 'none'; if (sysLabel) sysLabel.style.display = 'none'; }
   if (typeof applyMenuAccess === 'function') applyMenuAccess();
+  if (typeof renderKesehatan === 'function') renderKesehatan();
 }
 
 function hideWelcome(){
@@ -736,12 +753,15 @@ function backupAllData() {
 
 function restoreAllData(input) {
   const file = input.files[0]; if (!file) return;
-  if (!confirm('⚠️ PERINGATAN!\n\nRestore data akan MENGHAPUS semua data lokal saat ini dan menimpanya dengan data dari file backup.\n\nLanjutkan?')) { input.value = ''; return; }
+  if (!confirm('⚠️ PERINGATAN!\n\nRestore akan MENGHAPUS semua data di perangkat ini dan menimpa data di Google Sheet dengan isi file backup (perubahan terbaru dari perangkat lain bisa hilang).\n\nData saat ini akan diunduh dulu sebagai cadangan.\n\nLanjutkan?')) { input.value = ''; return; }
+  const kode = prompt('Ketik RESTORE (huruf besar) untuk melanjutkan:');
+  if (kode !== 'RESTORE') { toast('Restore dibatalkan'); input.value = ''; return; }
+  try { backupAllData(); } catch (e) { console.warn('backup sebelum restore gagal', e); }
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
       const data = JSON.parse(e.target.result); if (!data.state) throw new Error('Format file tidak dikenali.');
-      S = data.state; migrate(); persist(); pushAllToSheet();
+      S = data.state; migrate(); if (typeof logAudit === 'function') logAudit('restore', 'Restore dari ' + file.name); persist(); pushAllToSheet();
       toast('✅ Data berhasil direstore! Memuat ulang aplikasi...'); setTimeout(() => { location.reload(); }, 1500);
     } catch (err) { console.error(err); toast('Gagal restore: ' + err.message, 'error'); input.value = ''; }
   };

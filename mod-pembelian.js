@@ -130,6 +130,7 @@ function pbDel(id){
   if (!confirm('Hapus faktur?')) return;
   S.pembelian = S.pembelian.filter(x => x.id !== id);
   removeJournalsFor(p.id, p.no);
+  if (typeof logAudit === 'function') logAudit('hapus_pembelian', p.no);
   persist(); queue({ type:'pembelian', action:'delete', id }); renderPembelian(); refreshDashboard(); toast('Dihapus');
 }
 

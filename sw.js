@@ -1,7 +1,7 @@
-const CACHE = 'imb-v39';
+const CACHE = 'imb-v38';
 const SHELL = [
   './', './index.html', './style.css',
-  './core.js', './auth.js', './import.js',
+  './core.js', './auth.js', './tools.js', './import.js',
   './mod-print.js', './app.js',
   './mod-dashboard.js', './mod-barang.js', './mod-supplier.js',
   './mod-pelanggan.js', './mod-pembelian.js', './mod-penjualan.js',

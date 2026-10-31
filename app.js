@@ -50,6 +50,7 @@ async function initApp(){
   setInterval(() => {
     if (!document.hidden && typeof hasUrl === 'function' && hasUrl()) flush();
   }, 30000);
+  setInterval(() => { if (typeof autoPull === 'function') autoPull(); }, 120000);
 }
 
 window.addEventListener('DOMContentLoaded', initApp);

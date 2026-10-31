@@ -110,7 +110,7 @@ function kkSave(){
     jLines.push({ akun: '6001', debit: jml, kredit: 0 }); // Beban
     jLines.push({ akun: '1002', debit: 0, kredit: jml }); // Kas Kecil
   }
-  postJournal(tgl, 'KK-'+ent, ket || 'Kas Kecil', ent, jLines);
+  postJournal(tgl, 'KK-'+ent, ket || 'Kas Kecil', ent, jLines, rec.id);
   persist();
   queue({ type:'kk', action:'upsert', record:rec });
 
@@ -131,6 +131,11 @@ function kkDelMutasi(id){
   kkOf(ent).saldo += (m.keluar || 0) - (m.masuk || 0);
   addKas(ent, (m.masuk || 0) - (m.keluar || 0));
   kkOf(ent).mutasi = kkOf(ent).mutasi.filter(x => x.id !== id);
+  if (!removeJournalsFor(id, null)){ // jurnal lama tanpa src: cocokkan tgl + nominal
+    const nom = (m.masuk || 0) || (m.keluar || 0);
+    const lama = S.jurnalUmum.find(j => !j.src && j.ref === 'KK-' + ent && j.tgl === m.tgl && sum(j.lines, l => l.debit || 0) === nom);
+    if (lama){ queue({ type: 'jurnalUmum', action: 'delete', id: lama.id }); S.jurnalUmum = S.jurnalUmum.filter(j => j !== lama); }
+  }
   persist();
   queue({ type:'kk', action:'delete', id });
   renderKasKecil();

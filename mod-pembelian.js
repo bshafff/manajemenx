@@ -88,9 +88,14 @@ if (isPeriodLocked(tgl)) return toast('Periode ditutup', 'error');
 
   // JURNAL OTOMATIS (Dr. Hutang Belum Difaktur, Cr. Hutang Usaha)
   const jLines = [];
-  jLines.push({ akun: '2002', debit: total, kredit: 0 }); 
-  jLines.push({ akun: '2001', debit: 0, kredit: total }); 
-  postJournal(tgl, no, `Faktur Beli dari ${sup ? sup.nama : 'Supplier'}`, entity, jLines);
+  jLines.push({ akun: '2002', debit: dpp, kredit: 0 });
+  if (ppnVal > 0) jLines.push({ akun: '1501', debit: ppnVal, kredit: 0 }); // PPN Masukan
+  jLines.push({ akun: '2001', debit: 0, kredit: total });
+  if (status === 'lunas') { // dibayar tunai: hutang langsung lunas
+    jLines.push({ akun: '2001', debit: total, kredit: 0 });
+    jLines.push({ akun: '1001', debit: 0, kredit: total });
+  }
+  postJournal(tgl, no, `Faktur Beli dari ${sup ? sup.nama : 'Supplier'}`, entity, jLines, rec.id);
 
   document.getElementById('pb-no').value = genDocNo('FB');
   document.getElementById('pb-sup').value = ''; document.getElementById('pb-items').innerHTML = '';
@@ -124,6 +129,7 @@ function pbDel(id){
   if (isPeriodLocked(p.tgl)) return toast('Periode ditutup', 'error');
   if (!confirm('Hapus faktur?')) return;
   S.pembelian = S.pembelian.filter(x => x.id !== id);
+  removeJournalsFor(p.id, p.no);
   persist(); queue({ type:'pembelian', action:'delete', id }); renderPembelian(); refreshDashboard(); toast('Dihapus');
 }
 

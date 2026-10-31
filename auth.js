@@ -24,13 +24,6 @@ function currentUser(){
 }
 function isLoggedIn(){ return !!currentUser(); }
 
-/* Fungsi Hash PIN */
-async function hashPin(pin){
-  const msgBuffer = new TextEncoder().encode(String(pin));
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
 
 async function login(userId, pin){
   const u = (S.users || []).find(x => x.id === userId);

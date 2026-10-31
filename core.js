@@ -2,7 +2,7 @@
    KONFIGURASI
    ═══════════════════════════════════════════════════════════════ */
 const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwobjSbT7Pt83lnYyhOM_yOYFgXrTOtAQdLEePCXwRDgJot4dkhdw3Zvo7z2zJCEmYI/exec';
-const API_KEY = 'ERP_2026';
+const API_KEY = 'JTvr3Ce7EF59hPsN8iDhoWZdahfuaM88';
 const PPN_DEFAULT = 11;
 
 const LINI = {
@@ -85,10 +85,12 @@ function seedAccounts(){
     { id: '1002', nama: 'Kas Kecil', tipe: 'Aset', saldoNormal: 'Debit' },
     { id: '1201', nama: 'Piutang Usaha', tipe: 'Aset', saldoNormal: 'Debit' },
     { id: '1301', nama: 'Persediaan Barang', tipe: 'Aset', saldoNormal: 'Debit' },
+    { id: '1501', nama: 'PPN Masukan', tipe: 'Aset', saldoNormal: 'Debit' },
     { id: '1401', nama: 'Aset Tetap', tipe: 'Aset', saldoNormal: 'Debit' },
     { id: '1402', nama: 'Akumulasi Penyusutan', tipe: 'Aset', saldoNormal: 'Kredit' }, // Contra-Asset
     { id: '2001', nama: 'Hutang Usaha', tipe: 'Kewajiban', saldoNormal: 'Kredit' },
     { id: '2002', nama: 'Hutang Pemasok Belum Difakturkan', tipe: 'Kewajiban', saldoNormal: 'Kredit' },
+    { id: '2201', nama: 'PPN Keluaran', tipe: 'Kewajiban', saldoNormal: 'Kredit' },
     { id: '3001', nama: 'Modal Pemilik', tipe: 'Ekuitas', saldoNormal: 'Kredit' },
     { id: '4001', nama: 'Pendapatan Penjualan', tipe: 'Pendapatan', saldoNormal: 'Kredit' },
     { id: '4002', nama: 'Pendapatan Lain-lain', tipe: 'Pendapatan', saldoNormal: 'Kredit' },
@@ -145,7 +147,7 @@ function migrate(){
   if (!Array.isArray(S.accounts) || !S.accounts.length) {
     S.accounts = seedAccounts(); changed = true;
   } else {
-    ['4002', '6004', '2002', '1401', '1402', '4003', '6005', '6006'].forEach(id => {
+    ['4002', '6004', '2002', '1401', '1402', '4003', '6005', '6006', '1501', '2201'].forEach(id => {
       if (!S.accounts.find(a => a.id === id)) {
         const newAcc = seedAccounts().find(a => a.id === id);
         if (newAcc) S.accounts.push(newAcc);
@@ -296,19 +298,35 @@ function recalcStok(){
   });
 }
 
-function postJournal(tgl, ref, ket, ent, lines) {
+function postJournal(tgl, ref, ket, ent, lines, srcId) {
+  lines = lines.filter(l => (l.debit || 0) > 0 || (l.kredit || 0) > 0);
   const totalDebit = sum(lines.filter(l => l.debit), l => l.debit);
   const totalKredit = sum(lines.filter(l => l.kredit), l => l.kredit);
-  if (Math.abs(totalDebit - totalKredit) > 0.01) { console.error("Jurnal tidak seimbang!", { lines, totalDebit, totalKredit }); return; }
+  if (Math.abs(totalDebit - totalKredit) > 0.01) {
+    console.error("Jurnal tidak seimbang!", { lines, totalDebit, totalKredit });
+    toast('Jurnal ' + ref + ' tidak seimbang, tidak dibuat. Cek jurnal manual.', 'error');
+    return null;
+  }
   const rec = { id: uid(), tgl, ref, ket, entity: ent, lines, updatedAt: new Date().toISOString() };
+  if (srcId) rec.src = srcId;
   S.jurnalUmum.unshift(rec);
   queue({ type: 'jurnalUmum', action: 'upsert', record: rec });
+  return rec;
+}
+
+/* Hapus jurnal otomatis milik dokumen. Jurnal baru dicocokkan lewat src (id dokumen);
+   jurnal lama (tanpa src) dicocokkan lewat nomor dokumen yang unik. */
+function removeJournalsFor(srcId, ref){
+  const del = (S.jurnalUmum || []).filter(j => (srcId && j.src === srcId) || (!j.src && ref && j.ref === ref));
+  del.forEach(j => queue({ type: 'jurnalUmum', action: 'delete', id: j.id }));
+  S.jurnalUmum = S.jurnalUmum.filter(j => !del.includes(j));
+  return del.length;
 }
 
 /* ═══════════════════════════════════════════════════════════════
    SYNC & STATUS
    ═══════════════════════════════════════════════════════════════ */
-let busy = false;
+let busy = false; let pulling = false; let syncErr = '';
 function trackSync(){ localStorage.last_sync = Date.now(); }
 function lastSyncText(){ const t = localStorage.last_sync; if (!t) return '○ Belum tersinkron'; const d = new Date(+t); return '✓ Tersinkron — ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
 const opKey = o => (o.type || '') + '|' + (o.id || (o.record && o.record.id) || '');
@@ -327,8 +345,9 @@ async function flush(){
       try {
         const res = await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
         const txt = await res.text(); try { json = JSON.parse(txt); } catch(_){ json = null; }
-        if (!json || !json.ok || !Array.isArray(json.results)){ console.error('Sync Server Error:', txt); break; }
-      } catch(e){ console.error('Network Error:', e); break; }
+        if (!json || !json.ok || !Array.isArray(json.results)){ console.error('Sync Server Error:', txt); syncErr = (json && json.error) || String(txt).slice(0, 60) || 'server tidak membalas'; break; }
+      } catch(e){ console.error('Network Error:', e); syncErr = 'jaringan bermasalah'; break; }
+      syncErr = '';
       const acked = new Set(); const failedMap = new Map();
       chunk.forEach((op, i) => { const r = json.results[i]; if (r && r.ok) acked.add(op._q); else failedMap.set(op._q, (r && r.error) || 'tanpa balasan'); });
       const rest = [];
@@ -366,6 +385,7 @@ function updateStatus(){
   if (isDemo){ syEl.textContent = '🎬 Mode demo'; if (btnSync) btnSync.innerHTML = '↑ Sync'; }
   else if (!online){ syEl.textContent = n > 0 ? `🔴 Offline · ${n} data tersimpan lokal` : '🔴 Offline · lokal'; if (btnSync) btnSync.innerHTML = '↑ Sync'; }
   else if (busy) { syEl.textContent = `⏳ Menyingkronkan ${n > 0 ? n + ' data' : ''}...`; if (btnSync) btnSync.innerHTML = `<span style="display:inline-block; animation:spin 1s linear infinite">↻</span> Sync`; }
+  else if (n > 0 && syncErr){ syEl.textContent = `⚠ ${n} data belum terkirim (${syncErr})`; if (btnSync) btnSync.innerHTML = '↑ Sync'; }
   else if (n > 0){ syEl.textContent = `⏳ ${n} perubahan menunggu sync`; if (btnSync) btnSync.innerHTML = '↑ Sync'; }
   else if (nf > 0){ syEl.textContent = `⚠ ${nf} data gagal sync`; if (btnSync) btnSync.innerHTML = '↑ Sync'; }
   else { syEl.textContent = lastSyncText(); if (btnSync) btnSync.innerHTML = '↑ Sync'; }
@@ -404,21 +424,31 @@ async function hardReset() {
   setTimeout(() => { window.location.href = window.location.pathname + '?fresh=' + Date.now(); }, 800);
 }
 
-async function bootstrapSync(){
+async function bootstrapSync(silent){
   if (!hasUrl() || getUrl() === 'DEMO') return;
-  if (!navigator.onLine){ toast('Offline — sync otomatis nanti'); return; }
+  if (pulling) return;
+  if (!navigator.onLine){ if (!silent) toast('Offline — sync otomatis nanti'); return; }
+  pulling = true;
+  try { await bootstrapSyncRun(!!silent); } finally { pulling = false; updateStatus(); }
+}
+
+async function bootstrapSyncRun(silent){
   await flush();
-  if (getQueue().length){ toast('Masih ada data belum terkirim — tarik data ditunda', 'error'); return; }
+  if (getQueue().length){ if (!silent) toast('Masih ada data belum terkirim — tarik data ditunda', 'error'); return; }
 
   const lastTime = localStorage[K_SERVER_TIME]; const isFirstPull = !lastTime;
-  toast(isFirstPull ? 'Memuat semua data dari Sheet…' : 'Memuat pembaruan dari Sheet…');
+  if (!silent) toast(isFirstPull ? 'Memuat semua data dari Sheet…' : 'Memuat pembaruan dari Sheet…');
 
   try {
     let url = getUrl() + '?action=pull&key=' + encodeURIComponent(API_KEY);
     if (lastTime){ const since = new Date(Date.parse(lastTime) - 5000).toISOString(); url += '&since=' + encodeURIComponent(since); }
     const res = await fetch(url); const txt = await res.text(); let json; try { json = JSON.parse(txt); } catch(e){ throw new Error('invalid'); }
-    if (!(json && json.ok && json.data)){ toast('Gagal memuat dari Sheet' + (json && json.error ? ': ' + json.error : ''), 'error'); return; }
+    if (!(json && json.ok && json.data)){ syncErr = (json && json.error) || 'gagal memuat'; if (!silent) toast('Gagal memuat dari Sheet' + (json && json.error ? ': ' + json.error : ''), 'error'); return; }
     const d = json.data;
+    if (!isFirstPull){
+      const adaBaru = Object.values(d).some(v => Array.isArray(v) && v.length) || (json.deleted && json.deleted.length);
+      if (!adaBaru){ if (json.serverTime) localStorage[K_SERVER_TIME] = json.serverTime; trackSync(); return; }
+    }
 
     if (isFirstPull) {
       const ada = (d.barang?.length) || (d.supplier?.length) || (d.pelanggan?.length) || (d.pembelian?.length) || (d.penjualan?.length);
@@ -449,8 +479,15 @@ async function bootstrapSync(){
       if (json.deleted && json.deleted.length) { json.deleted.forEach(del => { if (S[del.type] && Array.isArray(S[del.type])) S[del.type] = S[del.type].filter(x => x.id !== del.id); if (del.type === 'kk') { Object.keys(S.kasKecil.perEntity).forEach(k => { const obj = S.kasKecil.perEntity[k]; obj.mutasi = obj.mutasi.filter(x => x.id !== del.id); obj.saldo = obj.mutasi.reduce((acc, curr) => acc + ((curr.masuk||0) - (curr.keluar||0)), 0); }); } }); }
     }
     if (json.serverTime) localStorage[K_SERVER_TIME] = json.serverTime;
-    migrate(); recalcKas(); recalcStok(); persist(); refreshAll(); trackSync(); toast('✓ Data disinkronkan dengan Sheet');
-  } catch(e){ console.warn('pull gagal:', e); toast('Gagal memuat dari Sheet', 'error'); }
+    migrate(); recalcKas(); recalcStok(); persist(); trackSync(); refreshAll(); if (!silent) toast('✓ Data disinkronkan dengan Sheet');
+  } catch(e){ console.warn('pull gagal:', e); if (!silent) toast('Gagal memuat dari Sheet', 'error'); }
+}
+
+/* Tarik otomatis: saat app dibuka, kembali aktif, online lagi, dan berkala */
+function autoPull(){
+  if (document.hidden || !hasUrl() || getUrl() === 'DEMO' || !navigator.onLine || busy || pulling) return;
+  if (typeof isLoggedIn === 'function' && !isLoggedIn()) return;
+  bootstrapSync(true);
 }
 
 function pushAllToSheet(){
@@ -570,7 +607,7 @@ function renderSidebar(){
 }
 
 function openModule(id){
-  if (!hasUrl()){ renderWelcome(); return; } if (!isLoggedIn()){ renderLogin(); return; } if (!canAccess(id)){ toast('Akses ditolak','error'); return; }
+  if (!isLoggedIn()){ renderLogin(); return; } if (!canAccess(id)){ toast('Akses ditolak','error'); return; }
   view = id; $$('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + id)); renderNav(); renderSidebar(); window.scrollTo({top:0}); refreshView(id);
 }
 
@@ -600,7 +637,9 @@ function refreshView(id){
 }
 
 function refreshAll(){
-  Object.keys({ home:1, dashboard:1, barang:1, supplier:1, pelanggan:1, pesananPembelian:1, penerimaanBarang:1, pembelian:1, penjualan:1, pembayaran:1, penerimaan:1, kaskecil:1, jurnal:1, akun:1, eksekutif:1, produksi:1, panen:1, kandang:1, coa:1, jurnalUmum:1, laporanAkuntansi:1, laporanKeuangan:1, penyesuaian:1, retur:1, tutupBuku:1, aset:1, migrasi:1 }).forEach(refreshView);
+  ['home','dashboard','barang','supplier','pelanggan','pesananPembelian','penerimaanBarang','pembelian','penjualan','pembayaran','penerimaan','kaskecil','jurnal','akun','eksekutif','produksi','panen','kandang','coa','jurnalUmum','laporanAkuntansi','laporanKeuangan','penyesuaian','retur','tutupBuku','aset','migrasi'].forEach(id => {
+    try { refreshView(id); } catch(e){ console.error('Render gagal: ' + id, e); }
+  });
   updateStatus(); renderSidebar();
 }
 
@@ -661,9 +700,9 @@ window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); instal
 window.addEventListener('appinstalled', () => $('#ib')?.remove());
 if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !(matchMedia('(display-mode: standalone)').matches || navigator.standalone)){ window.addEventListener('load', () => showInstall('⬇ Cara pasang di iPhone', () => { alert('Buka lewat Safari → Bagikan → "Tambah ke Layar Utama".'); })); }
 
-window.addEventListener('online', () => { updateStatus(); toast('Online'); flush(); });
+window.addEventListener('online', () => { updateStatus(); toast('Online'); flush().then(autoPull); });
 window.addEventListener('offline', () => { updateStatus(); toast('Offline','error'); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden){ flush(); checkAppUpdate(false); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden){ flush().then(autoPull); checkAppUpdate(false); } });
 
 const _api = new URLSearchParams(location.search).get('api');
 if (_api){ localStorage[K_URL] = _api; history.replaceState(null,'',location.pathname); }
@@ -677,7 +716,7 @@ function boot(){
   hideWelcome(); renderNav(); renderSidebar(); updateStatus();
   $$('.view').forEach(v => { const id = v.id.replace('v-',''); if (!canAccess(id)) v.style.display = 'none'; });
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + view));
-  refreshAll(); checkAppUpdate(false);
+  refreshAll(); checkAppUpdate(false); autoPull();
 }
 window.bootApp = boot;
 

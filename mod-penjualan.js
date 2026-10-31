@@ -130,15 +130,16 @@ function pjSave(){
   S.penjualan.unshift(rec);
      // POST JURNAL OTOMATIS (PENJUALAN)
   const jLines = [];
-  const accPiutang = p.status === 'lunas' ? '1001' : '1201'; // Kas atau Piutang
+  const accPiutang = status === 'lunas' ? '1001' : '1201'; // Kas atau Piutang
   jLines.push({ akun: accPiutang, debit: total, kredit: 0 });
-  jLines.push({ akun: '4001', debit: 0, kredit: total }); // Pendapatan
+  jLines.push({ akun: '4001', debit: 0, kredit: dpp }); // Pendapatan (tanpa PPN)
+  if (ppnVal > 0) jLines.push({ akun: '2201', debit: 0, kredit: ppnVal }); // PPN Keluaran
   const hppTotal = sum(items, i => i.qty * (i.hpp || 0));
   if (hppTotal > 0) {
     jLines.push({ akun: '5001', debit: hppTotal, kredit: 0 }); // HPP
     jLines.push({ akun: '1301', debit: 0, kredit: hppTotal }); // Persediaan
   }
-  postJournal(tgl, no, `Jual ke ${pel ? pel.nama : 'Umum'}`, entity, jLines);
+  postJournal(tgl, no, `Jual ke ${pel ? pel.nama : 'Umum'}`, entity, jLines, rec.id);
   recalcStok();
   persist(); queue({ type:'penjualan', action:'upsert', record:rec });
 
@@ -186,6 +187,7 @@ function pjDel(id){
   const dpp = sum(p.items, i => i.qty*i.harga); const ppnVal = p.ppnPersen ? Math.round(dpp * p.ppnPersen / 100) : 0;
   if (p.status === 'lunas') addKas(p.entity, -(dpp + ppnVal));
   S.penjualan = S.penjualan.filter(x => x.id !== id);
+  removeJournalsFor(p.id, p.no);
   recalcStok();
   persist(); queue({ type:'penjualan', action:'delete', id }); renderPenjualan(); refreshDashboard(); toast('Dihapus');
 }

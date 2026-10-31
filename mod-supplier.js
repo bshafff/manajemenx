@@ -5,7 +5,7 @@
 function renderSupplier(){
   const el = document.getElementById('supplier-list');
   if (!el) return;
-  const list = scopeEntity(S.supplier || []);
+  const list = (S.supplier || []).filter(entityFilter);
   if (!list.length){
     el.innerHTML = `<div class="empty"><span class="e">🏭</span>
       Belum ada supplier</div>`;

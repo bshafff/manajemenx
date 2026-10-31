@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    KONFIGURASI
    ═══════════════════════════════════════════════════════════════ */
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwobjSbT7Pt83lnYyhOM_yOYFgXrTOtAQdLEePCXwRDgJot4dkhdw3Zvo7z2zJCEmYI/exec';
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbxHDfoP-yLkLQMMcM-IIHatjnRQg1s_gLuUT3Js4UbjAUsPFCstivOjvR501lBePIRs/exec';
 const API_KEY = 'JTvr3Ce7EF59hPsN8iDhoWZdahfuaM88';
 const PPN_DEFAULT = 11;
 
